@@ -28,8 +28,8 @@ async function loadDashboard() {
       data.cursor.tabAcceptRate ? data.cursor.tabAcceptRate.toFixed(1) + '%' : '--';
     document.getElementById('cursorActiveUsers').textContent =
       data.cursor.activeUsers || '--';
-    document.getElementById('cursorSpend').textContent =
-      data.cursor.spendDollars ? '$' + data.cursor.spendDollars.toFixed(2) : '--';
+    document.getElementById('cursorUsage').textContent =
+      data.cursor.totalUsageDollars ? '$' + data.cursor.totalUsageDollars.toFixed(2) : '--';
 
     // Claude Code metrics
     document.getElementById('claudeSessions').textContent =

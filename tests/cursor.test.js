@@ -199,11 +199,11 @@ describe('cursor Admin API', () => {
   });
 
   describe('parseSpend', () => {
-    it('aggregates spend across users', () => {
+    it('aggregates spend and included spend across users', () => {
       const response = {
         teamMemberSpend: [
-          { email: 'dev1@test.com', spendCents: 1000, fastPremiumRequests: 50 },
-          { email: 'dev2@test.com', spendCents: 2000, fastPremiumRequests: 100 }
+          { email: 'dev1@test.com', spendCents: 1000, includedSpendCents: 500, fastPremiumRequests: 50 },
+          { email: 'dev2@test.com', spendCents: 2000, includedSpendCents: 1500, fastPremiumRequests: 100 }
         ]
       };
 
@@ -211,8 +211,26 @@ describe('cursor Admin API', () => {
 
       expect(result.totalSpendCents).toBe(3000);
       expect(result.totalSpendDollars).toBe(30);
+      expect(result.totalIncludedSpendCents).toBe(2000);
+      expect(result.totalIncludedSpendDollars).toBe(20);
+      expect(result.totalUsageDollars).toBe(50);
       expect(result.byUser['dev1@test.com'].spendCents).toBe(1000);
+      expect(result.byUser['dev1@test.com'].includedSpendDollars).toBe(5);
       expect(result.byUser['dev2@test.com'].spendDollars).toBe(20);
+    });
+
+    it('handles zero overage with included usage', () => {
+      const response = {
+        teamMemberSpend: [
+          { email: 'dev@test.com', spendCents: 0, includedSpendCents: 7000 }
+        ]
+      };
+
+      const result = parseSpend(response);
+
+      expect(result.totalSpendDollars).toBe(0);
+      expect(result.totalIncludedSpendDollars).toBe(70);
+      expect(result.totalUsageDollars).toBe(70);
     });
 
     it('handles empty spend data', () => {
@@ -222,6 +240,8 @@ describe('cursor Admin API', () => {
 
       expect(result.totalSpendCents).toBe(0);
       expect(result.totalSpendDollars).toBe(0);
+      expect(result.totalIncludedSpendDollars).toBe(0);
+      expect(result.totalUsageDollars).toBe(0);
     });
   });
 });

@@ -145,7 +145,7 @@ app.get('/api/dashboard/summary', async (req, res) => {
 
     const summary = {
       github: { avgCycleTimeHours: 0, prCount: 0 },
-      cursor: { aiCodePercent: 0, tabAcceptRate: 0, activeUsers: 0, totalRequests: 0, spendDollars: 0 },
+      cursor: { aiCodePercent: 0, tabAcceptRate: 0, activeUsers: 0, totalRequests: 0, spendDollars: 0, includedSpendDollars: 0, totalUsageDollars: 0 },
       claude: { sessions: 0, costDollars: 0 }
     };
 
@@ -173,8 +173,10 @@ app.get('/api/dashboard/summary', async (req, res) => {
         summary.cursor.activeUsers = m.data.totals.activeUsers || 0;
         summary.cursor.totalRequests = m.data.totals.totalRequests || 0;
       }
-      if (m.metric_type === 'spend' && m.data.totalSpendDollars) {
-        summary.cursor.spendDollars = m.data.totalSpendDollars;
+      if (m.metric_type === 'spend') {
+        summary.cursor.spendDollars = m.data.totalSpendDollars || 0;
+        summary.cursor.includedSpendDollars = m.data.totalIncludedSpendDollars || 0;
+        summary.cursor.totalUsageDollars = m.data.totalUsageDollars || 0;
       }
     }
 
