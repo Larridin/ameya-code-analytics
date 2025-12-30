@@ -15,14 +15,23 @@ async function loadDashboard() {
     const res = await fetch(`/api/dashboard/summary?startDate=${startDate}&endDate=${endDate}`);
     const data = await res.json();
 
+    // GitHub metrics
     document.getElementById('cycleTime').textContent =
       data.github.avgCycleTimeHours ? data.github.avgCycleTimeHours.toFixed(1) : '--';
     document.getElementById('prCount').textContent =
       data.github.prCount || '--';
-    document.getElementById('aiPercent').textContent =
-      data.cursor.aiPercent ? data.cursor.aiPercent.toFixed(1) + '%' : '--';
-    document.getElementById('cursorDau').textContent =
-      data.cursor.avgDau ? data.cursor.avgDau.toFixed(1) : '--';
+
+    // Cursor metrics (Admin API)
+    document.getElementById('aiCodePercent').textContent =
+      data.cursor.aiCodePercent ? data.cursor.aiCodePercent.toFixed(1) + '%' : '--';
+    document.getElementById('tabAcceptRate').textContent =
+      data.cursor.tabAcceptRate ? data.cursor.tabAcceptRate.toFixed(1) + '%' : '--';
+    document.getElementById('cursorActiveUsers').textContent =
+      data.cursor.activeUsers || '--';
+    document.getElementById('cursorSpend').textContent =
+      data.cursor.spendDollars ? '$' + data.cursor.spendDollars.toFixed(2) : '--';
+
+    // Claude Code metrics
     document.getElementById('claudeSessions').textContent =
       data.claude.sessions || '--';
     document.getElementById('claudeCost').textContent =

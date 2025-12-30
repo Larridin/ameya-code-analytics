@@ -60,10 +60,40 @@ app.post('/api/backfill', async (req, res) => {
     }
 
     if (source === 'cursor') {
-      // Cursor Analytics API requires Enterprise team membership
-      return res.status(400).json({
-        error: 'Cursor Analytics API requires Enterprise team membership. This feature is not available for individual/Pro accounts.'
-      });
+      const apiKey = process.env.CURSOR_API_KEY;
+      if (!apiKey) return res.status(400).json({ error: 'CURSOR_API_KEY not configured' });
+
+      // Fetch daily usage data
+      const usage = await cursor.fetchDailyUsage(apiKey, startDate, endDate);
+      const usageMetrics = cursor.parseDailyUsage(usage);
+
+      // Save aggregated metrics by date
+      for (const [date, dayData] of Object.entries(usageMetrics.byDate)) {
+        await db.saveMetric('cursor', 'daily', date, {
+          ...dayData,
+          totals: usageMetrics.totals,
+          byUser: usageMetrics.byUser
+        });
+        count++;
+      }
+
+      // If no daily data, save at least the totals for the date range
+      if (Object.keys(usageMetrics.byDate).length === 0) {
+        await db.saveMetric('cursor', 'daily', startDate, {
+          totals: usageMetrics.totals,
+          byUser: usageMetrics.byUser
+        });
+        count++;
+      }
+
+      // Fetch and save spend data (monthly)
+      try {
+        const spend = await cursor.fetchSpend(apiKey);
+        const spendMetrics = cursor.parseSpend(spend);
+        await db.saveMetric('cursor', 'spend', new Date().toISOString().split('T')[0], spendMetrics);
+      } catch (err) {
+        console.warn('Failed to fetch spend data:', err.message);
+      }
     }
 
     if (source === 'github') {
@@ -115,7 +145,7 @@ app.get('/api/dashboard/summary', async (req, res) => {
 
     const summary = {
       github: { avgCycleTimeHours: 0, prCount: 0 },
-      cursor: { aiPercent: 0, avgDau: 0 },
+      cursor: { aiCodePercent: 0, tabAcceptRate: 0, activeUsers: 0, totalRequests: 0, spendDollars: 0 },
       claude: { sessions: 0, costDollars: 0 }
     };
 
@@ -135,13 +165,18 @@ app.get('/api/dashboard/summary', async (req, res) => {
     if (cycleTimeCount > 0) summary.github.avgCycleTimeHours = totalCycleTime / cycleTimeCount;
 
     // Aggregate Cursor
-    let totalAiPercent = 0, dauSum = 0, dauCount = 0;
     for (const m of cursorMetrics) {
-      if (m.data.aiAttribution?.aiPercent) totalAiPercent = m.data.aiAttribution.aiPercent; // use latest
-      if (m.data.dau) { dauSum += m.data.dau; dauCount++; }
+      if (m.metric_type === 'daily' && m.data.totals) {
+        // Use latest totals (they're cumulative for the queried period)
+        summary.cursor.aiCodePercent = m.data.totals.aiCodePercent || 0;
+        summary.cursor.tabAcceptRate = m.data.totals.tabAcceptRate || 0;
+        summary.cursor.activeUsers = m.data.totals.activeUsers || 0;
+        summary.cursor.totalRequests = m.data.totals.totalRequests || 0;
+      }
+      if (m.metric_type === 'spend' && m.data.totalSpendDollars) {
+        summary.cursor.spendDollars = m.data.totalSpendDollars;
+      }
     }
-    summary.cursor.aiPercent = totalAiPercent;
-    if (dauCount > 0) summary.cursor.avgDau = dauSum / dauCount;
 
     // Aggregate Claude
     for (const m of claudeMetrics) {

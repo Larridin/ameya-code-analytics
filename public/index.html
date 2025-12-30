@@ -27,15 +27,25 @@
         <div class="value" id="prCount">--</div>
         <div class="label">pull requests</div>
       </div>
-      <div class="metric-card cursor disabled">
+      <div class="metric-card cursor">
         <h3>Cursor - AI Code</h3>
-        <div class="value" id="aiPercent">N/A</div>
-        <div class="label">Enterprise only</div>
+        <div class="value" id="aiCodePercent">--</div>
+        <div class="label">% from AI</div>
       </div>
-      <div class="metric-card cursor disabled">
-        <h3>Cursor - DAU</h3>
-        <div class="value" id="cursorDau">N/A</div>
-        <div class="label">Enterprise only</div>
+      <div class="metric-card cursor">
+        <h3>Cursor - Tab Accept</h3>
+        <div class="value" id="tabAcceptRate">--</div>
+        <div class="label">% accepted</div>
+      </div>
+      <div class="metric-card cursor">
+        <h3>Cursor - Active Users</h3>
+        <div class="value" id="cursorActiveUsers">--</div>
+        <div class="label">users</div>
+      </div>
+      <div class="metric-card cursor">
+        <h3>Cursor - Spend</h3>
+        <div class="value" id="cursorSpend">--</div>
+        <div class="label">this month</div>
       </div>
       <div class="metric-card claude">
         <h3>Claude Code - Sessions</h3>
@@ -54,7 +64,7 @@
       <div class="backfill-form">
         <select id="backfillSource">
           <option value="github">GitHub</option>
-          <option value="cursor" disabled>Cursor (Enterprise only)</option>
+          <option value="cursor">Cursor</option>
           <option value="claude">Claude Code</option>
         </select>
         <label>From: <input type="date" id="backfillStart"></label>
