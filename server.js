@@ -202,80 +202,91 @@ app.get('/api/dashboard/team', async (req, res) => {
 
     const allMetrics = await db.getAllMetrics(start, end);
     const cursorMetrics = allMetrics.filter(m => m.source === 'cursor');
+    const claudeMetrics = allMetrics.filter(m => m.source === 'claude');
 
-    // Aggregate per-user data from cursor daily metrics
+    // Initialize user map with default values
     const userMap = {};
+    const initUser = (email) => {
+      if (!userMap[email]) {
+        userMap[email] = {
+          email,
+          // Cursor metrics
+          cursorLinesAdded: 0,
+          cursorAcceptedLines: 0,
+          cursorTabsShown: 0,
+          cursorTabsAccepted: 0,
+          cursorRequests: 0,
+          cursorSpendDollars: 0,
+          cursorIncludedSpendDollars: 0,
+          // Claude metrics
+          claudeSessions: 0,
+          claudeLinesAdded: 0,
+          claudeLinesRemoved: 0,
+          claudeCostDollars: 0,
+          // Status
+          isActive: false
+        };
+      }
+    };
 
+    // Process Cursor daily metrics
     for (const m of cursorMetrics) {
       if (m.metric_type === 'daily' && m.data.byUser) {
-        for (const [email, userData] of Object.entries(m.data.byUser)) {
-          if (!userMap[email]) {
-            userMap[email] = {
-              email,
-              totalLinesAdded: 0,
-              acceptedLinesAdded: 0,
-              totalTabsShown: 0,
-              totalTabsAccepted: 0,
-              requests: 0,
-              isActive: false,
-              spendDollars: 0,
-              includedSpendDollars: 0
-            };
-          }
-          // Only aggregate from the latest daily record (they contain period totals)
+        for (const email of Object.keys(m.data.byUser)) {
+          initUser(email);
         }
       }
-
-      // Get spend data per user
       if (m.metric_type === 'spend' && m.data.byUser) {
         for (const [email, spendData] of Object.entries(m.data.byUser)) {
-          if (!userMap[email]) {
-            userMap[email] = {
-              email,
-              totalLinesAdded: 0,
-              acceptedLinesAdded: 0,
-              totalTabsShown: 0,
-              totalTabsAccepted: 0,
-              requests: 0,
-              isActive: false,
-              spendDollars: 0,
-              includedSpendDollars: 0
-            };
-          }
-          userMap[email].spendDollars = spendData.spendDollars || 0;
-          userMap[email].includedSpendDollars = spendData.includedSpendDollars || 0;
+          initUser(email);
+          userMap[email].cursorSpendDollars = spendData.spendDollars || 0;
+          userMap[email].cursorIncludedSpendDollars = spendData.includedSpendDollars || 0;
         }
       }
     }
 
-    // Use the latest daily metric's byUser for usage data (it has period totals)
-    const latestDaily = cursorMetrics
+    // Use the latest Cursor daily metric for usage data
+    const latestCursorDaily = cursorMetrics
       .filter(m => m.metric_type === 'daily')
       .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-    if (latestDaily?.data?.byUser) {
-      for (const [email, userData] of Object.entries(latestDaily.data.byUser)) {
-        if (userMap[email]) {
-          userMap[email].totalLinesAdded = userData.totalLinesAdded || 0;
-          userMap[email].acceptedLinesAdded = userData.acceptedLinesAdded || 0;
-          userMap[email].totalTabsShown = userData.totalTabsShown || 0;
-          userMap[email].totalTabsAccepted = userData.totalTabsAccepted || 0;
-          userMap[email].requests = userData.requests || 0;
-          userMap[email].isActive = userData.isActive || false;
+    if (latestCursorDaily?.data?.byUser) {
+      for (const [email, userData] of Object.entries(latestCursorDaily.data.byUser)) {
+        initUser(email);
+        userMap[email].cursorLinesAdded = userData.totalLinesAdded || 0;
+        userMap[email].cursorAcceptedLines = userData.acceptedLinesAdded || 0;
+        userMap[email].cursorTabsShown = userData.totalTabsShown || 0;
+        userMap[email].cursorTabsAccepted = userData.totalTabsAccepted || 0;
+        userMap[email].cursorRequests = userData.requests || 0;
+        if (userData.isActive) userMap[email].isActive = true;
+      }
+    }
+
+    // Process Claude metrics - aggregate across all days
+    for (const m of claudeMetrics) {
+      if (m.data.users) {
+        for (const [email, userData] of Object.entries(m.data.users)) {
+          initUser(email);
+          userMap[email].claudeSessions += userData.sessions || 0;
+          userMap[email].claudeLinesAdded += userData.linesAdded || 0;
+          userMap[email].claudeLinesRemoved += userData.linesRemoved || 0;
+          userMap[email].claudeCostDollars += (userData.costCents || 0) / 100;
         }
       }
     }
 
-    // Calculate percentages and format response
+    // Calculate derived metrics and format response
     const users = Object.values(userMap).map(u => ({
       ...u,
-      aiCodePercent: u.totalLinesAdded > 0
-        ? (u.acceptedLinesAdded / u.totalLinesAdded) * 100
+      cursorAiCodePercent: u.cursorLinesAdded > 0
+        ? (u.cursorAcceptedLines / u.cursorLinesAdded) * 100
         : 0,
-      tabAcceptRate: u.totalTabsShown > 0
-        ? (u.totalTabsAccepted / u.totalTabsShown) * 100
+      cursorTabAcceptRate: u.cursorTabsShown > 0
+        ? (u.cursorTabsAccepted / u.cursorTabsShown) * 100
         : 0,
-      totalUsageDollars: u.spendDollars + u.includedSpendDollars
+      cursorTotalUsageDollars: u.cursorSpendDollars + u.cursorIncludedSpendDollars,
+      totalLinesAdded: u.cursorLinesAdded + u.claudeLinesAdded,
+      totalCostDollars: u.cursorSpendDollars + u.cursorIncludedSpendDollars + u.claudeCostDollars
     })).sort((a, b) => b.totalLinesAdded - a.totalLinesAdded);
 
     res.json({ users });

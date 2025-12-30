@@ -125,11 +125,22 @@ h1 { color: #2c3e50; margin-bottom: 20px; }
 
 .team-table tr:hover { background: #f8f9fa; }
 
-.team-table td:nth-child(2),
-.team-table td:nth-child(3),
-.team-table td:nth-child(4),
-.team-table td:nth-child(5),
-.team-table td:nth-child(6) {
+.team-table td:not(:first-child) {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.team-table .header-cursor {
+  background: #e8f8f5;
+  border-bottom: 2px solid #00d1b2;
+}
+
+.team-table .header-claude {
+  background: #fdf2e9;
+  border-bottom: 2px solid #c96442;
+}
+
+.team-table thead tr:first-child th:first-child,
+.team-table thead tr:first-child th:last-child {
+  background: #f8f9fa;
 }

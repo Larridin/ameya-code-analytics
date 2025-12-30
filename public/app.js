@@ -52,25 +52,28 @@ async function loadTeamView(startDate, endDate) {
     const tbody = document.getElementById('teamTableBody');
 
     if (!data.users || data.users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">No data available</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10">No data available</td></tr>';
       return;
     }
 
     tbody.innerHTML = data.users.map(user => `
       <tr>
         <td>${user.email}</td>
-        <td>${user.totalLinesAdded.toLocaleString()}</td>
-        <td>${user.aiCodePercent.toFixed(1)}%</td>
-        <td>${user.tabAcceptRate.toFixed(1)}%</td>
-        <td>${user.requests}</td>
-        <td>$${user.totalUsageDollars.toFixed(2)}</td>
-        <td>${user.isActive ? 'Yes' : 'No'}</td>
+        <td>${user.cursorLinesAdded.toLocaleString()}</td>
+        <td>${user.cursorAiCodePercent.toFixed(1)}%</td>
+        <td>${user.cursorTabAcceptRate.toFixed(1)}%</td>
+        <td>${user.cursorRequests}</td>
+        <td>$${user.cursorTotalUsageDollars.toFixed(2)}</td>
+        <td>${user.claudeSessions}</td>
+        <td>${user.claudeLinesAdded.toLocaleString()}</td>
+        <td>$${user.claudeCostDollars.toFixed(2)}</td>
+        <td>$${user.totalCostDollars.toFixed(2)}</td>
       </tr>
     `).join('');
   } catch (err) {
     console.error('Failed to load team view:', err);
     document.getElementById('teamTableBody').innerHTML =
-      '<tr><td colspan="7">Error loading team data</td></tr>';
+      '<tr><td colspan="10">Error loading team data</td></tr>';
   }
 }
 
