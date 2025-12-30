@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Analytics Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Code Analytics Dashboard</h1>
+
+    <div class="controls">
+      <label>From: <input type="date" id="startDate"></label>
+      <label>To: <input type="date" id="endDate"></label>
+      <button onclick="loadDashboard()">Refresh</button>
+    </div>
+
+    <div class="metrics-grid" id="metrics">
+      <div class="metric-card github">
+        <h3>GitHub - Cycle Time</h3>
+        <div class="value" id="cycleTime">--</div>
+        <div class="label">avg hours to merge</div>
+      </div>
+      <div class="metric-card github">
+        <h3>GitHub - PRs</h3>
+        <div class="value" id="prCount">--</div>
+        <div class="label">pull requests</div>
+      </div>
+      <div class="metric-card cursor">
+        <h3>Cursor - AI Code</h3>
+        <div class="value" id="aiPercent">--</div>
+        <div class="label">% from AI</div>
+      </div>
+      <div class="metric-card cursor">
+        <h3>Cursor - DAU</h3>
+        <div class="value" id="cursorDau">--</div>
+        <div class="label">avg daily users</div>
+      </div>
+      <div class="metric-card claude">
+        <h3>Claude Code - Sessions</h3>
+        <div class="value" id="claudeSessions">--</div>
+        <div class="label">total sessions</div>
+      </div>
+      <div class="metric-card claude">
+        <h3>Claude Code - Cost</h3>
+        <div class="value" id="claudeCost">--</div>
+        <div class="label">estimated spend</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Backfill Data</h2>
+      <div class="backfill-form">
+        <select id="backfillSource">
+          <option value="github">GitHub</option>
+          <option value="cursor">Cursor</option>
+          <option value="claude">Claude Code</option>
+        </select>
+        <label>From: <input type="date" id="backfillStart"></label>
+        <label>To: <input type="date" id="backfillEnd"></label>
+        <button onclick="runBackfill()">Fetch Data</button>
+      </div>
+      <div id="backfillStatus"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
