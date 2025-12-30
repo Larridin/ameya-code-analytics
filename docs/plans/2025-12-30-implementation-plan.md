@@ -1,12 +1,87 @@
 # Code Analytics Dashboard Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILLS:
+> - Use `superpowers:executing-plans` to implement this plan task-by-task
+> - Use `superpowers:test-driven-development` for TDD discipline
 
 **Goal:** Build a unified dashboard to track developer productivity across GitHub, Cursor, and Claude Code with explicit data backfill.
 
 **Architecture:** Express server with three API clients fetching data into PostgreSQL. Frontend reads from Postgres only. Backfill endpoint triggers data ingestion.
 
 **Tech Stack:** Node.js, Express, pg (postgres), Chart.js, vanilla HTML/JS
+
+---
+
+## TDD Discipline (MANDATORY)
+
+### The Iron Law
+
+```
+NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
+```
+
+Write code before the test? **Delete it. Start over.** No exceptions.
+
+### Red-Green-Refactor Cycle
+
+For each feature:
+
+1. **RED - Write failing test**
+   - One behavior per test
+   - Clear descriptive name
+   - Real code (no mocks unless unavoidable)
+
+2. **VERIFY RED - Watch it fail (MANDATORY)**
+   ```bash
+   npm test -- path/to/test.js
+   ```
+   - Confirm test FAILS (not errors)
+   - Failure message is expected
+   - Fails because feature missing (not typos)
+
+3. **GREEN - Write minimal code**
+   - Simplest code to pass the test
+   - Don't add features beyond the test
+   - Don't refactor yet
+
+4. **VERIFY GREEN - Watch it pass (MANDATORY)**
+   ```bash
+   npm test -- path/to/test.js
+   ```
+   - Confirm test PASSES
+   - All other tests still pass
+   - No warnings or errors
+
+5. **REFACTOR - Clean up**
+   - Only after green
+   - Keep tests passing
+   - Don't add behavior
+
+6. **COMMIT**
+
+### Verification Checklist (End of Each Task)
+
+Before marking a task complete:
+
+- [ ] Every new function has a test
+- [ ] Watched each test fail before implementing
+- [ ] Each test failed for expected reason
+- [ ] Wrote minimal code to pass each test
+- [ ] All tests pass
+- [ ] Output pristine (no errors, warnings)
+- [ ] Committed with descriptive message
+
+**Can't check all boxes? You skipped TDD. Start over.**
+
+### Red Flags - STOP and Delete
+
+If you catch yourself:
+- Writing code before tests
+- Test passes immediately (didn't see it fail)
+- Rationalizing "just this once"
+- Adding features not covered by tests
+
+**Delete the code. Write the test first. Start over.**
 
 ---
 
@@ -1584,4 +1659,34 @@ git commit -m "docs: add README and update env example"
 7. Frontend dashboard
 8. Documentation
 
-Each task follows TDD: write failing test → implement → verify pass → commit.
+### TDD Cycle Per Task
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  1. RED: Write failing test                             │
+│  2. VERIFY RED: Run test, confirm FAIL                  │
+│  3. GREEN: Write minimal code                           │
+│  4. VERIFY GREEN: Run test, confirm PASS                │
+│  5. REFACTOR: Clean up (keep green)                     │
+│  6. COMMIT: Descriptive message                         │
+│  7. CHECKLIST: Verify all boxes checked                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+**NEVER skip VERIFY RED or VERIFY GREEN steps.**
+
+### Final Verification (After All Tasks)
+
+```bash
+npm test           # All tests pass
+npm start          # Server starts without errors
+# Open http://localhost:3000 - Dashboard loads
+```
+
+### Environment Setup Reminder
+
+Before running tests, ensure:
+1. PostgreSQL running locally
+2. Database `code_analytics` created
+3. Schema applied via `psql -d code_analytics -f schema.sql`
+4. `.env` file created with API keys
