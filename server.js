@@ -60,28 +60,10 @@ app.post('/api/backfill', async (req, res) => {
     }
 
     if (source === 'cursor') {
-      const apiKey = process.env.CURSOR_API_KEY;
-      if (!apiKey) return res.status(400).json({ error: 'CURSOR_API_KEY not configured' });
-
-      // Fetch commits for AI attribution
-      const commits = await cursor.fetchCursorCommits(apiKey, startDate, endDate);
-      const commitMetrics = cursor.parseCursorCommits(commits);
-
-      // Fetch DAU
-      const dau = await cursor.fetchCursorDau(apiKey, startDate, endDate);
-      const dauMetrics = cursor.parseCursorDau(dau);
-
-      // Save daily metrics
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        await db.saveMetric('cursor', 'daily', dateStr, {
-          aiAttribution: commitMetrics.totals,
-          dau: dauMetrics.byDate[dateStr] || 0
-        });
-        count++;
-      }
+      // Cursor Analytics API requires Enterprise team membership
+      return res.status(400).json({
+        error: 'Cursor Analytics API requires Enterprise team membership. This feature is not available for individual/Pro accounts.'
+      });
     }
 
     if (source === 'github') {
