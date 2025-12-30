@@ -102,3 +102,34 @@ h1 { color: #2c3e50; margin-bottom: 20px; }
 .status.success { background: #d4edda; color: #155724; }
 .status.error { background: #f8d7da; color: #721c24; }
 .status.loading { background: #fff3cd; color: #856404; }
+
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.team-table th, .team-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.team-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.team-table tr:hover { background: #f8f9fa; }
+
+.team-table td:nth-child(2),
+.team-table td:nth-child(3),
+.team-table td:nth-child(4),
+.team-table td:nth-child(5),
+.team-table td:nth-child(6) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

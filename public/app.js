@@ -36,8 +36,41 @@ async function loadDashboard() {
       data.claude.sessions || '--';
     document.getElementById('claudeCost').textContent =
       data.claude.costDollars ? '$' + data.claude.costDollars.toFixed(2) : '--';
+
+    // Load team view
+    loadTeamView(startDate, endDate);
   } catch (err) {
     console.error('Failed to load dashboard:', err);
+  }
+}
+
+async function loadTeamView(startDate, endDate) {
+  try {
+    const res = await fetch(`/api/dashboard/team?startDate=${startDate}&endDate=${endDate}`);
+    const data = await res.json();
+
+    const tbody = document.getElementById('teamTableBody');
+
+    if (!data.users || data.users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7">No data available</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.users.map(user => `
+      <tr>
+        <td>${user.email}</td>
+        <td>${user.totalLinesAdded.toLocaleString()}</td>
+        <td>${user.aiCodePercent.toFixed(1)}%</td>
+        <td>${user.tabAcceptRate.toFixed(1)}%</td>
+        <td>${user.requests}</td>
+        <td>$${user.totalUsageDollars.toFixed(2)}</td>
+        <td>${user.isActive ? 'Yes' : 'No'}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load team view:', err);
+    document.getElementById('teamTableBody').innerHTML =
+      '<tr><td colspan="7">Error loading team data</td></tr>';
   }
 }
 

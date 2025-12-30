@@ -193,6 +193,98 @@ app.get('/api/dashboard/summary', async (req, res) => {
   }
 });
 
+// Team view endpoint - per-user metrics
+app.get('/api/dashboard/team', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const end = endDate || new Date().toISOString().split('T')[0];
+
+    const allMetrics = await db.getAllMetrics(start, end);
+    const cursorMetrics = allMetrics.filter(m => m.source === 'cursor');
+
+    // Aggregate per-user data from cursor daily metrics
+    const userMap = {};
+
+    for (const m of cursorMetrics) {
+      if (m.metric_type === 'daily' && m.data.byUser) {
+        for (const [email, userData] of Object.entries(m.data.byUser)) {
+          if (!userMap[email]) {
+            userMap[email] = {
+              email,
+              totalLinesAdded: 0,
+              acceptedLinesAdded: 0,
+              totalTabsShown: 0,
+              totalTabsAccepted: 0,
+              requests: 0,
+              isActive: false,
+              spendDollars: 0,
+              includedSpendDollars: 0
+            };
+          }
+          // Only aggregate from the latest daily record (they contain period totals)
+        }
+      }
+
+      // Get spend data per user
+      if (m.metric_type === 'spend' && m.data.byUser) {
+        for (const [email, spendData] of Object.entries(m.data.byUser)) {
+          if (!userMap[email]) {
+            userMap[email] = {
+              email,
+              totalLinesAdded: 0,
+              acceptedLinesAdded: 0,
+              totalTabsShown: 0,
+              totalTabsAccepted: 0,
+              requests: 0,
+              isActive: false,
+              spendDollars: 0,
+              includedSpendDollars: 0
+            };
+          }
+          userMap[email].spendDollars = spendData.spendDollars || 0;
+          userMap[email].includedSpendDollars = spendData.includedSpendDollars || 0;
+        }
+      }
+    }
+
+    // Use the latest daily metric's byUser for usage data (it has period totals)
+    const latestDaily = cursorMetrics
+      .filter(m => m.metric_type === 'daily')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    if (latestDaily?.data?.byUser) {
+      for (const [email, userData] of Object.entries(latestDaily.data.byUser)) {
+        if (userMap[email]) {
+          userMap[email].totalLinesAdded = userData.totalLinesAdded || 0;
+          userMap[email].acceptedLinesAdded = userData.acceptedLinesAdded || 0;
+          userMap[email].totalTabsShown = userData.totalTabsShown || 0;
+          userMap[email].totalTabsAccepted = userData.totalTabsAccepted || 0;
+          userMap[email].requests = userData.requests || 0;
+          userMap[email].isActive = userData.isActive || false;
+        }
+      }
+    }
+
+    // Calculate percentages and format response
+    const users = Object.values(userMap).map(u => ({
+      ...u,
+      aiCodePercent: u.totalLinesAdded > 0
+        ? (u.acceptedLinesAdded / u.totalLinesAdded) * 100
+        : 0,
+      tabAcceptRate: u.totalTabsShown > 0
+        ? (u.totalTabsAccepted / u.totalTabsShown) * 100
+        : 0,
+      totalUsageDollars: u.spendDollars + u.includedSpendDollars
+    })).sort((a, b) => b.totalLinesAdded - a.totalLinesAdded);
+
+    res.json({ users });
+  } catch (err) {
+    console.error('Error generating team view:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Config endpoints
 app.get('/api/config', async (req, res) => {
   try {

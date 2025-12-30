@@ -162,6 +162,25 @@ describe('cursor Admin API', () => {
       expect(result.totals.aiCodePercent).toBe(70);
       expect(result.totals.activeUsers).toBe(2);
       expect(Object.keys(result.byUser).length).toBe(2);
+      // Check per-user metrics
+      expect(result.byUser['dev1@test.com'].aiCodePercent).toBe(60);
+      expect(result.byUser['dev2@test.com'].aiCodePercent).toBe(80);
+    });
+
+    it('counts unique active users across multiple days', () => {
+      const response = {
+        data: [
+          { email: 'dev@test.com', date: 1735689600000, isActive: true, totalLinesAdded: 100 },
+          { email: 'dev@test.com', date: 1735776000000, isActive: true, totalLinesAdded: 100 },
+          { email: 'dev@test.com', date: 1735862400000, isActive: true, totalLinesAdded: 100 }
+        ]
+      };
+
+      const result = parseDailyUsage(response);
+
+      // Same user active on 3 days should count as 1 unique active user
+      expect(result.totals.activeUsers).toBe(1);
+      expect(result.byUser['dev@test.com'].totalLinesAdded).toBe(300);
     });
 
     it('handles zero lines gracefully', () => {
