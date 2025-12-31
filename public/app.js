@@ -63,24 +63,31 @@ async function loadTeamView(startDate, endDate) {
       return `${(hours / 24).toFixed(1)}d`;
     };
 
-    tbody.innerHTML = data.users.map(user => `
-      <tr>
-        <td>${user.identifier}</td>
-        <td>${user.githubPrCount || '--'}</td>
-        <td>${formatCycleTime(user.githubAvgCycleTimeHours)}</td>
-        <td>${user.githubCommentsReceived || '--'}</td>
-        <td>${user.githubCommentsMade || '--'}</td>
-        <td>${user.cursorLinesAdded.toLocaleString()}</td>
-        <td>${user.cursorAiCodePercent.toFixed(1)}%</td>
-        <td>${user.cursorTabAcceptRate.toFixed(1)}%</td>
-        <td>${user.cursorRequests}</td>
-        <td>$${user.cursorTotalUsageDollars.toFixed(2)}</td>
-        <td>${user.claudeSessions}</td>
-        <td>${user.claudeLinesAdded.toLocaleString()}</td>
-        <td>$${user.claudeCostDollars.toFixed(2)}</td>
-        <td>$${user.totalCostDollars.toFixed(2)}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = data.users.map(user => {
+      const rowClass = user.isUnmapped ? 'user-unmapped' : '';
+      const userCell = user.isUnmapped
+        ? `<span class="unmapped-indicator" data-username="${escapeHtml(user.identifier)}" title="Click to add mapping">⚠️</span>${escapeHtml(user.identifier)}`
+        : escapeHtml(user.identifier);
+
+      return `
+        <tr class="${rowClass}">
+          <td>${userCell}</td>
+          <td>${user.githubPrCount || '--'}</td>
+          <td>${formatCycleTime(user.githubAvgCycleTimeHours)}</td>
+          <td>${user.githubCommentsReceived || '--'}</td>
+          <td>${user.githubCommentsMade || '--'}</td>
+          <td>${user.cursorLinesAdded.toLocaleString()}</td>
+          <td>${user.cursorAiCodePercent.toFixed(1)}%</td>
+          <td>${user.cursorTabAcceptRate.toFixed(1)}%</td>
+          <td>${user.cursorRequests}</td>
+          <td>$${user.cursorTotalUsageDollars.toFixed(2)}</td>
+          <td>${user.claudeSessions}</td>
+          <td>${user.claudeLinesAdded.toLocaleString()}</td>
+          <td>$${user.claudeCostDollars.toFixed(2)}</td>
+          <td>$${user.totalCostDollars.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join('');
   } catch (err) {
     console.error('Failed to load team view:', err);
     document.getElementById('teamTableBody').innerHTML =
@@ -242,3 +249,13 @@ function prefillMappingForm(githubUsername) {
   document.getElementById('mappingGithub').value = githubUsername;
   document.getElementById('mappingEmail').focus();
 }
+
+// Event delegation for unmapped user indicator clicks
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('unmapped-indicator')) {
+    const username = e.target.dataset.username;
+    if (username) {
+      prefillMappingForm(username);
+    }
+  }
+});
