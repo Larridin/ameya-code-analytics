@@ -10,6 +10,12 @@
   <div class="container">
     <h1>Code Analytics Dashboard</h1>
 
+    <div class="tab-bar">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="mappings">Identity Mappings</button>
+    </div>
+
+    <div id="dashboard-tab" class="tab-content active">
     <div class="controls">
       <label>From: <input type="date" id="startDate"></label>
       <label>To: <input type="date" id="endDate"></label>
@@ -106,6 +112,35 @@
         <button onclick="runBackfill()">Fetch Data</button>
       </div>
       <div id="backfillStatus"></div>
+    </div>
+    </div>
+
+    <div id="mappings-tab" class="tab-content">
+      <div class="section">
+        <h2>Add New Mapping</h2>
+        <div class="mapping-form">
+          <input type="email" id="mappingEmail" placeholder="Email address" required>
+          <input type="text" id="mappingGithub" placeholder="GitHub username" required>
+          <button onclick="addMapping()">Add Mapping</button>
+        </div>
+        <div id="mappingStatus"></div>
+      </div>
+
+      <div class="section">
+        <h2>Current Mappings</h2>
+        <table class="mappings-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>GitHub Username</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="mappingsTableBody">
+            <tr><td colspan="3">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 

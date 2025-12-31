@@ -153,3 +153,123 @@ h1 { color: #2c3e50; margin-bottom: 20px; }
 .team-table thead tr:first-child th:last-child {
   background: #f8f9fa;
 }
+
+/* Tab Navigation */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ddd;
+}
+
+.tab {
+  padding: 12px 24px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #7f8c8d;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: #2c3e50;
+}
+
+.tab.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Mappings Tab */
+.mapping-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mapping-form input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.mapping-form button {
+  padding: 8px 16px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mapping-form button:hover {
+  background: #2980b9;
+}
+
+.mappings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.mappings-table th,
+.mappings-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.mappings-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.mappings-table tr:hover {
+  background: #f8f9fa;
+}
+
+.mappings-table .delete-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mappings-table .delete-btn:hover {
+  background: #c0392b;
+}
+
+/* Unmapped user indicator */
+.unmapped-indicator {
+  color: #f39c12;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.unmapped-indicator:hover {
+  color: #e67e22;
+}
+
+.user-unmapped {
+  background: #fef9e7;
+}
