@@ -6,6 +6,8 @@ document.getElementById('startDate').value = thirtyDaysAgo;
 document.getElementById('endDate').value = today;
 document.getElementById('backfillStart').value = thirtyDaysAgo;
 document.getElementById('backfillEnd').value = today;
+document.getElementById('aiMetricsStartDate').value = thirtyDaysAgo;
+document.getElementById('aiMetricsEndDate').value = today;
 
 async function loadDashboard() {
   const startDate = document.getElementById('startDate').value;
@@ -141,9 +143,11 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
 
-    // Load mappings when switching to that tab
+    // Load data when switching tabs
     if (tab.dataset.tab === 'mappings') {
       loadMappings();
+    } else if (tab.dataset.tab === 'ai-metrics') {
+      loadAiMetrics();
     }
   });
 });
@@ -185,6 +189,114 @@ async function loadMappings() {
     console.error('Failed to load mappings:', err);
     document.getElementById('mappingsTableBody').innerHTML =
       '<tr><td colspan="3">Error loading mappings</td></tr>';
+  }
+}
+
+async function loadAiMetrics() {
+  const startDate = document.getElementById('aiMetricsStartDate').value;
+  const endDate = document.getElementById('aiMetricsEndDate').value;
+
+  try {
+    const res = await fetch(`/api/dashboard/ai-metrics?startDate=${startDate}&endDate=${endDate}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to load AI metrics');
+    }
+
+    // Summary cards
+    document.getElementById('aiLinesShipped').textContent = data.summary.prLinesAdded.toLocaleString();
+    document.getElementById('aiLinesRemoved').textContent = data.summary.prLinesRemoved.toLocaleString();
+    document.getElementById('aiMergedPrs').textContent = data.summary.mergedCount;
+    document.getElementById('aiCycleTime').textContent = data.summary.avgCycleTimeHours.toFixed(1);
+    document.getElementById('aiShippedPercent').textContent = data.summary.aiShippedPercent.toFixed(1) + '%';
+    document.getElementById('aiAttributedPrPercent').textContent = data.summary.aiAttributedPrPercent.toFixed(1) + '%';
+    document.getElementById('aiTotalCost').textContent = '$' + (data.summary.costCents / 100).toFixed(2);
+
+    // Tool breakdown - Claude
+    const claude = data.toolBreakdown.claude;
+    document.getElementById('claudeLines').textContent = claude.linesAdded.toLocaleString();
+    document.getElementById('aiClaudeSessions').textContent = claude.sessions;
+    document.getElementById('claudeAcceptRate').textContent = (claude.acceptanceRate * 100).toFixed(1) + '%';
+    document.getElementById('aiClaudeCost').textContent = '$' + (claude.costCents / 100).toFixed(2);
+    document.getElementById('claudePrsCreated').textContent = claude.prsCreated;
+
+    // Tool breakdown - Cursor
+    const cursor = data.toolBreakdown.cursor;
+    document.getElementById('cursorLines').textContent = cursor.totalLinesAdded.toLocaleString() + ' (' + cursor.aiPercent.toFixed(0) + '% AI)';
+    document.getElementById('cursorAiPercent').textContent = cursor.aiPercent.toFixed(1) + '%';
+    document.getElementById('cursorAcceptRate').textContent = (cursor.acceptanceRate * 100).toFixed(1) + '%';
+    document.getElementById('cursorCost').textContent = '$' + (cursor.costCents / 100).toFixed(2);
+
+    // User table
+    renderAiUserTable(data.byUser);
+  } catch (err) {
+    console.error('Failed to load AI metrics:', err);
+    document.getElementById('aiUserTableBody').innerHTML =
+      '<tr><td colspan="6">Error loading AI metrics</td></tr>';
+  }
+}
+
+function renderAiUserTable(byUser) {
+  const tbody = document.getElementById('aiUserTableBody');
+  const users = Object.entries(byUser).sort((a, b) => b[1].prLinesAdded - a[1].prLinesAdded);
+
+  if (users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6">No data available</td></tr>';
+    return;
+  }
+
+  const formatCycleTime = (hours) => {
+    if (!hours) return '--';
+    if (hours < 1) return `${Math.round(hours * 60)}m`;
+    if (hours < 24) return `${hours.toFixed(1)}h`;
+    return `${(hours / 24).toFixed(1)}d`;
+  };
+
+  tbody.innerHTML = users.map(([email, user]) => {
+    const safeId = email.replace(/[^a-zA-Z0-9]/g, '_');
+    return `
+    <tr class="expandable-row" data-email="${escapeHtml(email)}">
+      <td><span class="expand-icon" id="expand-${safeId}">▶</span> ${escapeHtml(email)}</td>
+      <td>${user.prLinesAdded.toLocaleString()}</td>
+      <td>${user.aiShippedPercent.toFixed(1)}%</td>
+      <td>${user.mergedCount}</td>
+      <td>$${(user.costCents / 100).toFixed(2)}</td>
+      <td>${formatCycleTime(user.avgCycleTimeHours)}</td>
+    </tr>
+    <tr class="expanded-content" id="detail-${safeId}" style="display: none;">
+      <td colspan="6">
+        <div class="tool-detail">
+          <div class="tool-detail-section">
+            <h4>Claude Code</h4>
+            <div>Lines: ${user.claude.linesAdded.toLocaleString()}</div>
+            <div>Sessions: ${user.claude.sessions}</div>
+            <div>Cost: $${(user.claude.costCents / 100).toFixed(2)}</div>
+          </div>
+          <div class="tool-detail-section">
+            <h4>Cursor</h4>
+            <div>Lines: ${user.cursor.totalLines.toLocaleString()} (${user.cursor.aiPercent.toFixed(0)}% AI)</div>
+            <div>AI Lines: ${user.cursor.acceptedLines.toLocaleString()}</div>
+            <div>Cost: $${(user.cursor.costCents / 100).toFixed(2)}</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function toggleAiUserExpand(email) {
+  const safeId = email.replace(/[^a-zA-Z0-9]/g, '_');
+  const icon = document.getElementById(`expand-${safeId}`);
+  const detail = document.getElementById(`detail-${safeId}`);
+
+  if (detail.style.display === 'none') {
+    detail.style.display = 'table-row';
+    icon.classList.add('expanded');
+  } else {
+    detail.style.display = 'none';
+    icon.classList.remove('expanded');
   }
 }
 
@@ -257,5 +369,13 @@ document.addEventListener('click', (e) => {
     if (username) {
       prefillMappingForm(username);
     }
+  }
+});
+
+// Event delegation for expandable AI user rows
+document.addEventListener('click', (e) => {
+  const row = e.target.closest('.expandable-row');
+  if (row && row.dataset.email) {
+    toggleAiUserExpand(row.dataset.email);
   }
 });
