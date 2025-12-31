@@ -88,4 +88,14 @@ describe('server', () => {
       expect(res.body.success).toBe(true);
     });
   });
+
+  describe('GET /api/dashboard/ai-metrics', () => {
+    it('returns ai metrics structure', async () => {
+      const res = await request('GET', '/api/dashboard/ai-metrics?startDate=2025-01-01&endDate=2025-01-31');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('summary');
+      expect(res.body).toHaveProperty('toolBreakdown');
+      expect(res.body).toHaveProperty('byUser');
+    });
+  });
 });

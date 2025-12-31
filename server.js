@@ -406,6 +406,235 @@ app.get('/api/dashboard/team', async (req, res) => {
   }
 });
 
+// AI Metrics endpoint - combined metrics from GitHub, Claude, Cursor
+app.get('/api/dashboard/ai-metrics', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const end = endDate || new Date().toISOString().split('T')[0];
+
+    const allMetrics = await db.getAllMetrics(start, end);
+    const mappings = await db.getIdentityMappings();
+
+    // Build email lookup from GitHub username
+    const githubToEmail = {};
+    for (const m of mappings) {
+      githubToEmail[m.github_username.toLowerCase()] = m.email;
+    }
+
+    const githubMetrics = allMetrics.filter(m => m.source === 'github');
+    const claudeMetrics = allMetrics.filter(m => m.source === 'claude');
+    const cursorMetrics = allMetrics.filter(m => m.source === 'cursor');
+
+    // Aggregate GitHub totals
+    let totalPrLinesAdded = 0;
+    let totalPrLinesRemoved = 0;
+    let totalMergedCount = 0;
+    let totalCycleTime = 0;
+    const githubByUser = {};
+
+    for (const m of githubMetrics) {
+      totalPrLinesAdded += m.data.prLinesAdded || 0;
+      totalPrLinesRemoved += m.data.prLinesRemoved || 0;
+      totalMergedCount += m.data.mergedCount || 0;
+      if (m.data.avgCycleTimeHours && m.data.mergedCount) {
+        totalCycleTime += m.data.avgCycleTimeHours * m.data.mergedCount;
+      }
+
+      if (m.data.byAuthor) {
+        for (const [username, data] of Object.entries(m.data.byAuthor)) {
+          const email = githubToEmail[username.toLowerCase()] || username;
+          if (!githubByUser[email]) {
+            githubByUser[email] = { prLinesAdded: 0, prLinesRemoved: 0, mergedCount: 0, totalCycleTime: 0 };
+          }
+          githubByUser[email].prLinesAdded += data.prLinesAdded || 0;
+          githubByUser[email].prLinesRemoved += data.prLinesRemoved || 0;
+          githubByUser[email].mergedCount += data.mergedCount || 0;
+          githubByUser[email].totalCycleTime += data.totalCycleTime || 0;
+        }
+      }
+    }
+
+    // Aggregate Claude totals
+    let claudeLinesAdded = 0;
+    let claudeLinesRemoved = 0;
+    let claudeSessions = 0;
+    let claudeCostCents = 0;
+    let claudePrsCreated = 0;
+    let claudeEditAccepted = 0;
+    let claudeEditRejected = 0;
+    let claudeWriteAccepted = 0;
+    let claudeWriteRejected = 0;
+    const claudeByUser = {};
+
+    for (const m of claudeMetrics) {
+      const t = m.data.totals || {};
+      claudeLinesAdded += t.linesAdded || 0;
+      claudeLinesRemoved += t.linesRemoved || 0;
+      claudeSessions += t.sessions || 0;
+      claudeCostCents += t.costCents || 0;
+      claudePrsCreated += t.prs || 0;
+      claudeEditAccepted += t.editAccepted || 0;
+      claudeEditRejected += t.editRejected || 0;
+      claudeWriteAccepted += t.writeAccepted || 0;
+      claudeWriteRejected += t.writeRejected || 0;
+
+      if (m.data.users) {
+        for (const [email, data] of Object.entries(m.data.users)) {
+          if (!claudeByUser[email]) {
+            claudeByUser[email] = { linesAdded: 0, linesRemoved: 0, sessions: 0, costCents: 0 };
+          }
+          claudeByUser[email].linesAdded += data.linesAdded || 0;
+          claudeByUser[email].linesRemoved += data.linesRemoved || 0;
+          claudeByUser[email].sessions += data.sessions || 0;
+          claudeByUser[email].costCents += data.costCents || 0;
+        }
+      }
+    }
+
+    // Aggregate Cursor totals
+    let cursorTotalLines = 0;
+    let cursorAcceptedLines = 0;
+    let cursorTabsShown = 0;
+    let cursorTabsAccepted = 0;
+    let cursorCostCents = 0;
+    const cursorByUser = {};
+
+    for (const m of cursorMetrics) {
+      if (m.metric_type === 'daily' && m.data.totals) {
+        cursorTotalLines += m.data.totals.totalLinesAdded || 0;
+        cursorAcceptedLines += m.data.totals.acceptedLinesAdded || 0;
+        cursorTabsShown += m.data.totals.totalTabsShown || 0;
+        cursorTabsAccepted += m.data.totals.totalTabsAccepted || 0;
+      }
+      if (m.metric_type === 'spend') {
+        cursorCostCents += m.data.totalSpendCents || 0;
+        cursorCostCents += m.data.totalIncludedSpendCents || 0;
+      }
+
+      if (m.metric_type === 'daily' && m.data.byUser) {
+        for (const [email, data] of Object.entries(m.data.byUser)) {
+          if (!cursorByUser[email]) {
+            cursorByUser[email] = { totalLines: 0, acceptedLines: 0, tabsShown: 0, tabsAccepted: 0, costCents: 0 };
+          }
+          cursorByUser[email].totalLines += data.totalLinesAdded || 0;
+          cursorByUser[email].acceptedLines += data.acceptedLinesAdded || 0;
+          cursorByUser[email].tabsShown += data.totalTabsShown || 0;
+          cursorByUser[email].tabsAccepted += data.totalTabsAccepted || 0;
+        }
+      }
+      if (m.metric_type === 'spend' && m.data.byUser) {
+        for (const [email, data] of Object.entries(m.data.byUser)) {
+          if (!cursorByUser[email]) {
+            cursorByUser[email] = { totalLines: 0, acceptedLines: 0, tabsShown: 0, tabsAccepted: 0, costCents: 0 };
+          }
+          cursorByUser[email].costCents += (data.spendCents || 0) + (data.includedSpendCents || 0);
+        }
+      }
+    }
+
+    // Calculate derived metrics
+    const editorLinesTotal = claudeLinesAdded + cursorTotalLines;
+    const aiLinesTotal = claudeLinesAdded + cursorAcceptedLines; // Claude is 100% AI
+    const aiShippedPercent = editorLinesTotal > 0 && totalPrLinesAdded > 0
+      ? (totalPrLinesAdded * (aiLinesTotal / editorLinesTotal) / totalPrLinesAdded) * 100
+      : 0;
+    const aiAttributedPrPercent = totalMergedCount > 0
+      ? (claudePrsCreated / totalMergedCount) * 100
+      : 0;
+
+    // Claude acceptance rate
+    const claudeActions = claudeEditAccepted + claudeEditRejected + claudeWriteAccepted + claudeWriteRejected;
+    const claudeAcceptanceRate = claudeActions > 0
+      ? (claudeEditAccepted + claudeWriteAccepted) / claudeActions
+      : 0;
+
+    // Cursor acceptance rate
+    const cursorAcceptanceRate = cursorTabsShown > 0
+      ? cursorTabsAccepted / cursorTabsShown
+      : 0;
+
+    // Cursor AI percent
+    const cursorAiPercent = cursorTotalLines > 0
+      ? (cursorAcceptedLines / cursorTotalLines) * 100
+      : 0;
+
+    // Build per-user metrics
+    const allEmails = new Set([
+      ...Object.keys(githubByUser),
+      ...Object.keys(claudeByUser),
+      ...Object.keys(cursorByUser)
+    ]);
+
+    const byUser = {};
+    for (const email of allEmails) {
+      const gh = githubByUser[email] || {};
+      const cl = claudeByUser[email] || {};
+      const cu = cursorByUser[email] || {};
+
+      const userEditorLines = (cl.linesAdded || 0) + (cu.totalLines || 0);
+      const userAiLines = (cl.linesAdded || 0) + (cu.acceptedLines || 0);
+      const userPrLines = gh.prLinesAdded || 0;
+
+      byUser[email] = {
+        prLinesAdded: userPrLines,
+        prLinesRemoved: gh.prLinesRemoved || 0,
+        mergedCount: gh.mergedCount || 0,
+        avgCycleTimeHours: gh.mergedCount > 0 ? gh.totalCycleTime / gh.mergedCount : 0,
+        aiShippedPercent: userEditorLines > 0 && userPrLines > 0
+          ? (userAiLines / userEditorLines) * 100
+          : 0,
+        costCents: (cl.costCents || 0) + (cu.costCents || 0),
+        claude: {
+          linesAdded: cl.linesAdded || 0,
+          linesRemoved: cl.linesRemoved || 0,
+          sessions: cl.sessions || 0,
+          costCents: cl.costCents || 0
+        },
+        cursor: {
+          totalLines: cu.totalLines || 0,
+          acceptedLines: cu.acceptedLines || 0,
+          aiPercent: cu.totalLines > 0 ? (cu.acceptedLines / cu.totalLines) * 100 : 0,
+          costCents: cu.costCents || 0
+        }
+      };
+    }
+
+    res.json({
+      summary: {
+        prLinesAdded: totalPrLinesAdded,
+        prLinesRemoved: totalPrLinesRemoved,
+        mergedCount: totalMergedCount,
+        avgCycleTimeHours: totalMergedCount > 0 ? totalCycleTime / totalMergedCount : 0,
+        aiShippedPercent,
+        aiAttributedPrPercent,
+        costCents: claudeCostCents + cursorCostCents
+      },
+      toolBreakdown: {
+        claude: {
+          linesAdded: claudeLinesAdded,
+          linesRemoved: claudeLinesRemoved,
+          sessions: claudeSessions,
+          acceptanceRate: claudeAcceptanceRate,
+          costCents: claudeCostCents,
+          prsCreated: claudePrsCreated
+        },
+        cursor: {
+          totalLinesAdded: cursorTotalLines,
+          acceptedLinesAdded: cursorAcceptedLines,
+          aiPercent: cursorAiPercent,
+          acceptanceRate: cursorAcceptanceRate,
+          costCents: cursorCostCents
+        }
+      },
+      byUser
+    });
+  } catch (err) {
+    console.error('Error generating AI metrics:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Config endpoints
 app.get('/api/config', async (req, res) => {
   try {
