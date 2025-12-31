@@ -130,6 +130,15 @@ h1 { color: #2c3e50; margin-bottom: 20px; }
   font-variant-numeric: tabular-nums;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+.team-table .header-github {
+  background: #f0f4f8;
+  border-bottom: 2px solid #24292e;
+}
+
 .team-table .header-cursor {
   background: #e8f8f5;
   border-bottom: 2px solid #00d1b2;

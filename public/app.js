@@ -52,13 +52,24 @@ async function loadTeamView(startDate, endDate) {
     const tbody = document.getElementById('teamTableBody');
 
     if (!data.users || data.users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10">No data available</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14">No data available</td></tr>';
       return;
     }
 
+    const formatCycleTime = (hours) => {
+      if (!hours) return '--';
+      if (hours < 1) return `${Math.round(hours * 60)}m`;
+      if (hours < 24) return `${hours.toFixed(1)}h`;
+      return `${(hours / 24).toFixed(1)}d`;
+    };
+
     tbody.innerHTML = data.users.map(user => `
       <tr>
-        <td>${user.email}</td>
+        <td>${user.identifier}</td>
+        <td>${user.githubPrCount || '--'}</td>
+        <td>${formatCycleTime(user.githubAvgCycleTimeHours)}</td>
+        <td>${user.githubCommentsReceived || '--'}</td>
+        <td>${user.githubCommentsMade || '--'}</td>
         <td>${user.cursorLinesAdded.toLocaleString()}</td>
         <td>${user.cursorAiCodePercent.toFixed(1)}%</td>
         <td>${user.cursorTabAcceptRate.toFixed(1)}%</td>
@@ -73,7 +84,7 @@ async function loadTeamView(startDate, endDate) {
   } catch (err) {
     console.error('Failed to load team view:', err);
     document.getElementById('teamTableBody').innerHTML =
-      '<tr><td colspan="10">Error loading team data</td></tr>';
+      '<tr><td colspan="14">Error loading team data</td></tr>';
   }
 }
 

@@ -104,8 +104,22 @@ app.post('/api/backfill', async (req, res) => {
 
       for (const repo of repos.split(',')) {
         const [owner, repoName] = repo.trim().split('/');
+
+        // Fetch PRs and comments
         const prs = await github.fetchPRsDateRange(token, owner, repoName, startDate, endDate);
-        const metrics = github.parsePRs(prs);
+        const reviewComments = await github.fetchReviewComments(token, owner, repoName, startDate);
+        const issueComments = await github.fetchIssueComments(token, owner, repoName, startDate);
+
+        // Filter comments to date range and combine
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const allComments = [...reviewComments, ...issueComments].filter(c => {
+          const created = new Date(c.created_at);
+          return created >= start && created <= end;
+        });
+
+        // Parse with comments
+        const metrics = github.parsePRs(prs, allComments);
 
         // Group PRs by date
         const byDate = {};
@@ -115,8 +129,21 @@ app.post('/api/backfill', async (req, res) => {
           byDate[date].push(pr);
         }
 
-        for (const [date, datePRs] of Object.entries(byDate)) {
-          const dayMetrics = github.parsePRs(datePRs);
+        // Group comments by date for daily metrics
+        const commentsByDate = {};
+        for (const c of allComments) {
+          const date = c.created_at.split('T')[0];
+          if (!commentsByDate[date]) commentsByDate[date] = [];
+          commentsByDate[date].push(c);
+        }
+
+        // Get all dates from both PRs and comments
+        const allDates = new Set([...Object.keys(byDate), ...Object.keys(commentsByDate)]);
+
+        for (const date of allDates) {
+          const datePRs = byDate[date] || [];
+          const dateComments = commentsByDate[date] || [];
+          const dayMetrics = github.parsePRs(datePRs, dateComments);
           await db.saveMetric('github', 'daily', date, {
             repo: `${owner}/${repoName}`,
             ...dayMetrics.totals,
@@ -203,13 +230,14 @@ app.get('/api/dashboard/team', async (req, res) => {
     const allMetrics = await db.getAllMetrics(start, end);
     const cursorMetrics = allMetrics.filter(m => m.source === 'cursor');
     const claudeMetrics = allMetrics.filter(m => m.source === 'claude');
+    const githubMetrics = allMetrics.filter(m => m.source === 'github');
 
     // Initialize user map with default values
     const userMap = {};
-    const initUser = (email) => {
-      if (!userMap[email]) {
-        userMap[email] = {
-          email,
+    const initUser = (identifier) => {
+      if (!userMap[identifier]) {
+        userMap[identifier] = {
+          identifier,
           // Cursor metrics
           cursorLinesAdded: 0,
           cursorAcceptedLines: 0,
@@ -223,6 +251,13 @@ app.get('/api/dashboard/team', async (req, res) => {
           claudeLinesAdded: 0,
           claudeLinesRemoved: 0,
           claudeCostDollars: 0,
+          // GitHub metrics
+          githubPrCount: 0,
+          githubMergedCount: 0,
+          githubAvgCycleTimeHours: 0,
+          githubTotalCycleTime: 0,
+          githubCommentsReceived: 0,
+          githubCommentsMade: 0,
           // Status
           isActive: false
         };
@@ -275,6 +310,20 @@ app.get('/api/dashboard/team', async (req, res) => {
       }
     }
 
+    // Process GitHub metrics - aggregate across all days
+    for (const m of githubMetrics) {
+      if (m.data.byAuthor) {
+        for (const [username, authorData] of Object.entries(m.data.byAuthor)) {
+          initUser(username);
+          userMap[username].githubPrCount += authorData.prCount || 0;
+          userMap[username].githubMergedCount += authorData.mergedCount || 0;
+          userMap[username].githubTotalCycleTime += authorData.totalCycleTime || 0;
+          userMap[username].githubCommentsReceived += authorData.commentsReceived || 0;
+          userMap[username].githubCommentsMade += authorData.commentsMade || 0;
+        }
+      }
+    }
+
     // Calculate derived metrics and format response
     const users = Object.values(userMap).map(u => ({
       ...u,
@@ -285,6 +334,9 @@ app.get('/api/dashboard/team', async (req, res) => {
         ? (u.cursorTabsAccepted / u.cursorTabsShown) * 100
         : 0,
       cursorTotalUsageDollars: u.cursorSpendDollars + u.cursorIncludedSpendDollars,
+      githubAvgCycleTimeHours: u.githubMergedCount > 0
+        ? u.githubTotalCycleTime / u.githubMergedCount
+        : 0,
       totalLinesAdded: u.cursorLinesAdded + u.claudeLinesAdded,
       totalCostDollars: u.cursorSpendDollars + u.cursorIncludedSpendDollars + u.claudeCostDollars
     })).sort((a, b) => b.totalLinesAdded - a.totalLinesAdded);

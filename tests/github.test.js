@@ -50,5 +50,30 @@ describe('github', () => {
       expect(metrics.byAuthor['dev1'].prCount).toBe(2);
       expect(metrics.byAuthor['dev2'].prCount).toBe(1);
     });
+
+    it('tracks comments received and made', () => {
+      const prs = [
+        { number: 1, user: { login: 'author1' }, created_at: '2025-01-01T10:00:00Z' },
+        { number: 2, user: { login: 'author2' }, created_at: '2025-01-01T10:00:00Z' }
+      ];
+
+      const comments = [
+        { user: { login: 'reviewer1' }, pull_request_url: 'https://api.github.com/repos/org/repo/pulls/1' },
+        { user: { login: 'reviewer1' }, pull_request_url: 'https://api.github.com/repos/org/repo/pulls/1' },
+        { user: { login: 'author1' }, pull_request_url: 'https://api.github.com/repos/org/repo/pulls/1' }, // self-comment
+        { user: { login: 'reviewer2' }, pull_request_url: 'https://api.github.com/repos/org/repo/pulls/2' }
+      ];
+
+      const metrics = parsePRs(prs, comments);
+
+      // author1 received 2 comments from reviewer1 (not counting self-comment)
+      expect(metrics.byAuthor['author1'].commentsReceived).toBe(2);
+      // author2 received 1 comment from reviewer2
+      expect(metrics.byAuthor['author2'].commentsReceived).toBe(1);
+      // reviewer1 made 2 comments
+      expect(metrics.byAuthor['reviewer1'].commentsMade).toBe(2);
+      // author1 made 1 comment (on own PR)
+      expect(metrics.byAuthor['author1'].commentsMade).toBe(1);
+    });
   });
 });
