@@ -16,5 +16,12 @@ CREATE TABLE IF NOT EXISTS metrics (
     UNIQUE(source, metric_type, date)
 );
 
+CREATE TABLE IF NOT EXISTS identity_mappings (
+    email VARCHAR(255) PRIMARY KEY,
+    github_username VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_metrics_lookup
 ON metrics(source, metric_type, date);

@@ -43,4 +43,27 @@ describe('db', () => {
       expect(value).toBe('test_value');
     });
   });
+
+  describe('identity mappings', () => {
+    beforeAll(async () => {
+      await pool.query("DELETE FROM identity_mappings WHERE email LIKE 'test%'");
+    });
+
+    it('saves and retrieves a mapping', async () => {
+      const { saveIdentityMapping, getIdentityMappings } = require('../lib/db');
+      await saveIdentityMapping('test@example.com', 'testuser');
+      const mappings = await getIdentityMappings();
+      const mapping = mappings.find(m => m.email === 'test@example.com');
+      expect(mapping.github_username).toBe('testuser');
+    });
+
+    it('deletes a mapping', async () => {
+      const { saveIdentityMapping, deleteIdentityMapping, getIdentityMappings } = require('../lib/db');
+      await saveIdentityMapping('test-delete@example.com', 'deleteuser');
+      await deleteIdentityMapping('test-delete@example.com');
+      const mappings = await getIdentityMappings();
+      const mapping = mappings.find(m => m.email === 'test-delete@example.com');
+      expect(mapping).toBeUndefined();
+    });
+  });
 });
