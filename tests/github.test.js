@@ -76,4 +76,23 @@ describe('github', () => {
       expect(metrics.byAuthor['author1'].commentsMade).toBe(1);
     });
   });
+
+  describe('parsePRWithDetails', () => {
+    it('returns additions and deletions for a PR', async () => {
+      // This is a mock test - actual API test would need token
+      const { parsePRWithDetails } = require('../lib/github');
+      const pr = {
+        number: 1,
+        additions: 100,
+        deletions: 50,
+        user: { login: 'alice' },
+        merged_at: '2025-01-01T12:00:00Z',
+        created_at: '2025-01-01T10:00:00Z'
+      };
+      const result = parsePRWithDetails(pr);
+      expect(result.additions).toBe(100);
+      expect(result.deletions).toBe(50);
+      expect(result.author).toBe('alice');
+    });
+  });
 });
