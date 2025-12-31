@@ -369,3 +369,40 @@ h1 { color: #2c3e50; margin-bottom: 20px; }
   font-size: 13px;
   margin-bottom: 5px;
 }
+
+/* Trends Section */
+.trends-section {
+  margin-bottom: 30px;
+}
+
+.trends-controls {
+  margin-bottom: 20px;
+}
+
+.trends-controls select {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-width: 200px;
+}
+
+.chart-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.chart-container h4 {
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  color: #2c3e50;
+  text-transform: uppercase;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 200px !important;
+}
