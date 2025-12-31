@@ -118,6 +118,19 @@ app.post('/api/backfill', async (req, res) => {
           return created >= start && created <= end;
         });
 
+        // Fetch detailed stats for merged PRs
+        const mergedPRDetails = await github.fetchMergedPRsWithDetails(token, owner, repoName, prs);
+
+        // Build lookup for PR line stats by author
+        const prLinesByAuthor = {};
+        for (const pr of mergedPRDetails) {
+          if (!prLinesByAuthor[pr.author]) {
+            prLinesByAuthor[pr.author] = { additions: 0, deletions: 0 };
+          }
+          prLinesByAuthor[pr.author].additions += pr.additions;
+          prLinesByAuthor[pr.author].deletions += pr.deletions;
+        }
+
         // Parse with comments
         const metrics = github.parsePRs(prs, allComments);
 
@@ -144,9 +157,26 @@ app.post('/api/backfill', async (req, res) => {
           const datePRs = byDate[date] || [];
           const dateComments = commentsByDate[date] || [];
           const dayMetrics = github.parsePRs(datePRs, dateComments);
+
+          // Add line stats to byAuthor
+          for (const author of Object.keys(dayMetrics.byAuthor)) {
+            dayMetrics.byAuthor[author].prLinesAdded = prLinesByAuthor[author]?.additions || 0;
+            dayMetrics.byAuthor[author].prLinesRemoved = prLinesByAuthor[author]?.deletions || 0;
+          }
+
+          // Calculate totals for line stats
+          let totalPrLinesAdded = 0;
+          let totalPrLinesRemoved = 0;
+          for (const stats of Object.values(prLinesByAuthor)) {
+            totalPrLinesAdded += stats.additions;
+            totalPrLinesRemoved += stats.deletions;
+          }
+
           await db.saveMetric('github', 'daily', date, {
             repo: `${owner}/${repoName}`,
             ...dayMetrics.totals,
+            prLinesAdded: totalPrLinesAdded,
+            prLinesRemoved: totalPrLinesRemoved,
             byAuthor: dayMetrics.byAuthor
           });
           count++;
