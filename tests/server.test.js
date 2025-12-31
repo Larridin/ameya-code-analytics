@@ -98,4 +98,19 @@ describe('server', () => {
       expect(res.body).toHaveProperty('byUser');
     });
   });
+
+  describe('GET /api/dashboard/ai-metrics/daily', () => {
+    it('returns daily metrics arrays', async () => {
+      const res = await request('GET', '/api/dashboard/ai-metrics/daily?startDate=2025-01-01&endDate=2025-01-31');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('dates');
+      expect(res.body).toHaveProperty('series');
+      expect(res.body.series).toHaveProperty('linesShipped');
+      expect(res.body.series).toHaveProperty('linesRemoved');
+      expect(res.body.series).toHaveProperty('aiPercent');
+      expect(res.body.series).toHaveProperty('costCents');
+      expect(res.body).toHaveProperty('users');
+      expect(Array.isArray(res.body.dates)).toBe(true);
+    });
+  });
 });
