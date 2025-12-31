@@ -12,6 +12,7 @@
 
     <div class="tab-bar">
       <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="ai-metrics">AI Metrics</button>
       <button class="tab" data-tab="mappings">Identity Mappings</button>
     </div>
 
@@ -113,6 +114,95 @@
       </div>
       <div id="backfillStatus"></div>
     </div>
+    </div>
+
+    <div id="ai-metrics-tab" class="tab-content">
+      <div class="controls">
+        <label>From: <input type="date" id="aiMetricsStartDate"></label>
+        <label>To: <input type="date" id="aiMetricsEndDate"></label>
+        <button onclick="loadAiMetrics()">Refresh</button>
+      </div>
+
+      <h2>Summary</h2>
+      <div class="metrics-grid" id="aiSummaryCards">
+        <div class="metric-card">
+          <h3>Lines Shipped</h3>
+          <div class="value" id="aiLinesShipped">--</div>
+          <div class="label">merged PR lines</div>
+        </div>
+        <div class="metric-card">
+          <h3>Lines Removed</h3>
+          <div class="value" id="aiLinesRemoved">--</div>
+          <div class="label">merged PR deletions</div>
+        </div>
+        <div class="metric-card">
+          <h3>Merged PRs</h3>
+          <div class="value" id="aiMergedPrs">--</div>
+          <div class="label">pull requests</div>
+        </div>
+        <div class="metric-card">
+          <h3>Cycle Time</h3>
+          <div class="value" id="aiCycleTime">--</div>
+          <div class="label">avg hours</div>
+        </div>
+        <div class="metric-card">
+          <h3>AI % (est)</h3>
+          <div class="value" id="aiShippedPercent">--</div>
+          <div class="label">of shipped code</div>
+        </div>
+        <div class="metric-card">
+          <h3>AI PRs (proven)</h3>
+          <div class="value" id="aiAttributedPrPercent">--</div>
+          <div class="label">with AI attribution</div>
+        </div>
+        <div class="metric-card">
+          <h3>Total Cost</h3>
+          <div class="value" id="aiTotalCost">--</div>
+          <div class="label">AI tools spend</div>
+        </div>
+      </div>
+
+      <h2>Tool Breakdown</h2>
+      <div class="tool-cards">
+        <div class="tool-card claude">
+          <h3>Claude Code</h3>
+          <div class="tool-stats">
+            <div><span class="stat-label">Lines:</span> <span id="claudeLines">--</span></div>
+            <div><span class="stat-label">Sessions:</span> <span id="aiClaudeSessions">--</span></div>
+            <div><span class="stat-label">Accept Rate:</span> <span id="claudeAcceptRate">--</span></div>
+            <div><span class="stat-label">Cost:</span> <span id="aiClaudeCost">--</span></div>
+            <div><span class="stat-label">PRs Created:</span> <span id="claudePrsCreated">--</span></div>
+          </div>
+        </div>
+        <div class="tool-card cursor">
+          <h3>Cursor</h3>
+          <div class="tool-stats">
+            <div><span class="stat-label">Lines:</span> <span id="cursorLines">--</span></div>
+            <div><span class="stat-label">AI %:</span> <span id="cursorAiPercent">--</span></div>
+            <div><span class="stat-label">Accept Rate:</span> <span id="cursorAcceptRate">--</span></div>
+            <div><span class="stat-label">Cost:</span> <span id="cursorCost">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h2>Developer Breakdown</h2>
+      <div class="table-scroll">
+        <table class="team-table" id="aiUserTable">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Lines Shipped</th>
+              <th>AI %</th>
+              <th>PRs</th>
+              <th>Cost</th>
+              <th>Cycle Time</th>
+            </tr>
+          </thead>
+          <tbody id="aiUserTableBody">
+            <tr><td colspan="6">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div id="mappings-tab" class="tab-content">
