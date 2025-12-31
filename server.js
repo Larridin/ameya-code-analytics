@@ -121,14 +121,23 @@ app.post('/api/backfill', async (req, res) => {
         // Fetch detailed stats for merged PRs
         const mergedPRDetails = await github.fetchMergedPRsWithDetails(token, owner, repoName, prs);
 
-        // Build lookup for PR line stats by author
-        const prLinesByAuthor = {};
+        // Group PR line stats by merge date and author
+        const prLinesByDateAndAuthor = {};
         for (const pr of mergedPRDetails) {
-          if (!prLinesByAuthor[pr.author]) {
-            prLinesByAuthor[pr.author] = { additions: 0, deletions: 0 };
+          if (!pr.merged) continue;
+          // Find the original PR to get merged_at date
+          const originalPr = prs.find(p => p.number === pr.number);
+          if (!originalPr || !originalPr.merged_at) continue;
+
+          const mergeDate = originalPr.merged_at.split('T')[0];
+          if (!prLinesByDateAndAuthor[mergeDate]) {
+            prLinesByDateAndAuthor[mergeDate] = {};
           }
-          prLinesByAuthor[pr.author].additions += pr.additions;
-          prLinesByAuthor[pr.author].deletions += pr.deletions;
+          if (!prLinesByDateAndAuthor[mergeDate][pr.author]) {
+            prLinesByDateAndAuthor[mergeDate][pr.author] = { additions: 0, deletions: 0 };
+          }
+          prLinesByDateAndAuthor[mergeDate][pr.author].additions += pr.additions;
+          prLinesByDateAndAuthor[mergeDate][pr.author].deletions += pr.deletions;
         }
 
         // Parse with comments
@@ -158,16 +167,19 @@ app.post('/api/backfill', async (req, res) => {
           const dateComments = commentsByDate[date] || [];
           const dayMetrics = github.parsePRs(datePRs, dateComments);
 
-          // Add line stats to byAuthor
+          // Get line stats for this specific date
+          const dateLineStats = prLinesByDateAndAuthor[date] || {};
+
+          // Add line stats to byAuthor (only for PRs merged on this date)
           for (const author of Object.keys(dayMetrics.byAuthor)) {
-            dayMetrics.byAuthor[author].prLinesAdded = prLinesByAuthor[author]?.additions || 0;
-            dayMetrics.byAuthor[author].prLinesRemoved = prLinesByAuthor[author]?.deletions || 0;
+            dayMetrics.byAuthor[author].prLinesAdded = dateLineStats[author]?.additions || 0;
+            dayMetrics.byAuthor[author].prLinesRemoved = dateLineStats[author]?.deletions || 0;
           }
 
-          // Calculate totals for line stats
+          // Calculate totals for line stats (only for this date)
           let totalPrLinesAdded = 0;
           let totalPrLinesRemoved = 0;
-          for (const stats of Object.values(prLinesByAuthor)) {
+          for (const stats of Object.values(dateLineStats)) {
             totalPrLinesAdded += stats.additions;
             totalPrLinesRemoved += stats.deletions;
           }
