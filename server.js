@@ -232,8 +232,17 @@ app.get('/api/dashboard/team', async (req, res) => {
     const claudeMetrics = allMetrics.filter(m => m.source === 'claude');
     const githubMetrics = allMetrics.filter(m => m.source === 'github');
 
+    // Load identity mappings (github_username -> email)
+    const mappings = await db.getIdentityMappings();
+    const githubToEmail = {};
+    for (const m of mappings) {
+      githubToEmail[m.github_username.toLowerCase()] = m.email;
+    }
+
     // Initialize user map with default values
     const userMap = {};
+    const unmappedGithubUsers = new Set();
+
     const initUser = (identifier) => {
       if (!userMap[identifier]) {
         userMap[identifier] = {
@@ -259,7 +268,8 @@ app.get('/api/dashboard/team', async (req, res) => {
           githubCommentsReceived: 0,
           githubCommentsMade: 0,
           // Status
-          isActive: false
+          isActive: false,
+          isUnmapped: false
         };
       }
     };
@@ -310,16 +320,29 @@ app.get('/api/dashboard/team', async (req, res) => {
       }
     }
 
-    // Process GitHub metrics - aggregate across all days
+    // Process GitHub metrics - map username to email
     for (const m of githubMetrics) {
       if (m.data.byAuthor) {
         for (const [username, authorData] of Object.entries(m.data.byAuthor)) {
-          initUser(username);
-          userMap[username].githubPrCount += authorData.prCount || 0;
-          userMap[username].githubMergedCount += authorData.mergedCount || 0;
-          userMap[username].githubTotalCycleTime += authorData.totalCycleTime || 0;
-          userMap[username].githubCommentsReceived += authorData.commentsReceived || 0;
-          userMap[username].githubCommentsMade += authorData.commentsMade || 0;
+          const email = githubToEmail[username.toLowerCase()];
+          if (email) {
+            // Mapped user - add to email-based entry
+            initUser(email);
+            userMap[email].githubPrCount += authorData.prCount || 0;
+            userMap[email].githubMergedCount += authorData.mergedCount || 0;
+            userMap[email].githubTotalCycleTime += authorData.totalCycleTime || 0;
+            userMap[email].githubCommentsReceived += authorData.commentsReceived || 0;
+            userMap[email].githubCommentsMade += authorData.commentsMade || 0;
+          } else {
+            // Unmapped user - show with username
+            initUser(username);
+            userMap[username].isUnmapped = true;
+            userMap[username].githubPrCount += authorData.prCount || 0;
+            userMap[username].githubMergedCount += authorData.mergedCount || 0;
+            userMap[username].githubTotalCycleTime += authorData.totalCycleTime || 0;
+            userMap[username].githubCommentsReceived += authorData.commentsReceived || 0;
+            userMap[username].githubCommentsMade += authorData.commentsMade || 0;
+          }
         }
       }
     }
@@ -339,7 +362,12 @@ app.get('/api/dashboard/team', async (req, res) => {
         : 0,
       totalLinesAdded: u.cursorLinesAdded + u.claudeLinesAdded,
       totalCostDollars: u.cursorSpendDollars + u.cursorIncludedSpendDollars + u.claudeCostDollars
-    })).sort((a, b) => b.totalLinesAdded - a.totalLinesAdded);
+    }))
+    // Sort: mapped users first (by lines), then unmapped users
+    .sort((a, b) => {
+      if (a.isUnmapped !== b.isUnmapped) return a.isUnmapped ? 1 : -1;
+      return b.totalLinesAdded - a.totalLinesAdded;
+    });
 
     res.json({ users });
   } catch (err) {
