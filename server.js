@@ -372,6 +372,42 @@ app.post('/api/config', async (req, res) => {
   }
 });
 
+// Identity mappings endpoints
+app.get('/api/identity-mappings', async (req, res) => {
+  try {
+    const mappings = await db.getIdentityMappings();
+    res.json(mappings);
+  } catch (err) {
+    console.error('Error fetching identity mappings:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/identity-mappings', async (req, res) => {
+  try {
+    const { email, githubUsername } = req.body;
+    if (!email || !githubUsername) {
+      return res.status(400).json({ error: 'email and githubUsername are required' });
+    }
+    const mapping = await db.saveIdentityMapping(email, githubUsername);
+    res.json(mapping);
+  } catch (err) {
+    console.error('Error saving identity mapping:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/identity-mappings/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    await db.deleteIdentityMapping(email);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting identity mapping:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

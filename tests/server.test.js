@@ -58,4 +58,34 @@ describe('server', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
   });
+
+  describe('Identity Mappings API', () => {
+    const testEmail = 'api-test@example.com';
+    const testUsername = 'api-test-user';
+
+    afterAll(async () => {
+      await request('DELETE', `/api/identity-mappings/${encodeURIComponent(testEmail)}`);
+    });
+
+    it('POST creates a mapping', async () => {
+      const res = await request('POST', '/api/identity-mappings', {
+        email: testEmail,
+        githubUsername: testUsername
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.email).toBe(testEmail);
+    });
+
+    it('GET returns all mappings', async () => {
+      const res = await request('GET', '/api/identity-mappings');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('DELETE removes a mapping', async () => {
+      const res = await request('DELETE', `/api/identity-mappings/${encodeURIComponent(testEmail)}`);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+  });
 });
