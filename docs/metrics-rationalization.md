@@ -8,18 +8,26 @@ This document defines how metrics from GitHub, Claude Code, and Cursor Admin API
 
 These metrics are available from multiple sources or come from GitHub as the primary source.
 
-### Primary Source: GitHub
+### Primary Source: GitHub (Committed Code Metrics)
 
 - `prCount` - Total pull requests (from GitHub API)
 - `mergedCount` - Merged PRs
 - `avgCycleTimeHours` - Average time from open to merge
 - `totalComments` - PR comments count
+- `linesAdded` - **Total lines added in PRs** (from GitHub PR diff stats - actual committed code)
+- `linesRemoved` - **Total lines removed in PRs** (from GitHub PR diff stats)
+- `aiLinesAdded` - **Estimated AI-generated lines in committed code** (core metric - see calculation below)
+- `aiPercent` - **Percentage of committed code from AI** (core metric - see calculation below)
 - `byAuthor` - PR metrics per author
+
+### Tool Usage Metrics (Separate from Committed Code)
+
+- `toolUsageLinesAdded` - **Total lines written in tools** (Claude + Cursor, committed + uncommitted)
+- `toolUsageAiLinesAdded` - **AI lines written in tools** (Claude + Cursor, committed + uncommitted)
+- `toolUsageAiPercent` - **AI percent in tool usage** (separate metric - see calculation below)
 
 ### Common Across Tools
 
-- `linesAdded` - Lines of code added (combined from Claude + Cursor)
-- `linesRemoved` - Lines of code removed (combined from Claude + Cursor)
 - `costCents` - Total cost in cents USD (combined from Claude + Cursor)
 - `commits` - Total commits (GitHub primary, Claude/Cursor secondary)
 
@@ -32,20 +40,27 @@ These metrics are available from multiple sources or come from GitHub as the pri
 - `mergedCount` - Merged PR count
 - `avgCycleTimeHours` - Average cycle time
 - `totalComments` - Total comments
+- `linesAdded` - **Lines added in PRs** (from PR diff stats - actual committed code)
+- `linesRemoved` - **Lines removed in PRs** (from PR diff stats)
 - `byAuthor` - PR metrics per author
 
-GitHub is the **primary source** for PR metrics. Any PR metrics from Claude or Cursor are considered **secondary** (for AI attribution analysis only).
+**Note:** To get `linesAdded`/`linesRemoved` from GitHub, we need to fetch PR diff stats (e.g., `GET /repos/{owner}/{repo}/pulls/{pull_number}` includes `additions` and `deletions` fields).
+
+GitHub is the **primary source** for PR metrics and actual code metrics. Any PR metrics from Claude or Cursor are considered **secondary** (for AI attribution analysis only).
 
 ## Claude Code Metrics (Tool-Specific)
 
 ### Core Tool Metrics
 
 - `sessions` - CLI session count (Claude-specific)
+- `linesAdded` - Lines of code added in Claude sessions (assumed to be AI-assisted)
 - `tokensInput` - Input tokens
 - `tokensOutput` - Output tokens
 - `tokensCacheRead` - Cache read tokens
 - `tokensCacheCreation` - Cache creation tokens
 - `costCents` - Cost in cents USD
+
+**Note:** Claude Code doesn't provide explicit AI vs non-AI breakdown. Since all code in Claude sessions is AI-assisted, we treat `linesAdded` as AI lines.
 
 ### Tool Actions (Claude-specific)
 
@@ -74,20 +89,22 @@ These are useful for understanding AI tool impact but are **not primary producti
 
 ### Core Tool Metrics
 
+- `totalLinesAdded` - Total lines of code added (AI + non-AI)
+- `acceptedLinesAdded` - **AI-generated lines that were accepted** (used for combined AI calculation)
 - `costCents` - Cost in cents USD (if available from Admin API)
 
 ### AI Feature Breakdown (Cursor-specific)
 
-- `tabLines` - Lines from tab completions
-- `composerLines` - Lines from Composer
-- `nonAiLines` - Non-AI lines
-- `aiPercent` - Percentage of code from AI
-- `tabAccepted` - Tab completion acceptances
-- `tabRejected` - Tab completion rejections
-- `composerAccepted` - Composer acceptances
-- `composerRejected` - Composer rejections
-- `agentEdits` - Agent edit metrics
-- `aiAcceptanceRate` - Overall AI acceptance rate
+- `tabLines` - Lines from tab completions (if available from commits API)
+- `composerLines` - Lines from Composer (if available from commits API)
+- `nonAiLines` - Non-AI lines (calculated as `totalLinesAdded - acceptedLinesAdded`)
+- `aiPercent` - Percentage of code from AI (Cursor-specific, calculated as `acceptedLinesAdded / totalLinesAdded * 100`)
+- `totalTabsShown` - Tab completions shown
+- `totalTabsAccepted` - Tab completions accepted
+- `composerRequests` - Composer requests
+- `chatRequests` - Chat requests
+- `agentRequests` - Agent requests
+- `tabAcceptRate` - Tab acceptance rate
 
 ### Secondary Metrics (AI Attribution)
 
@@ -121,9 +138,18 @@ These are useful for understanding AI tool impact but are **not primary producti
   "metric_type": "daily",
   "date": "2025-01-01",
   "data": {
-    // Core metrics (common or GitHub primary)
-    "linesAdded": 1000,        // Combined from Claude + Cursor
-    "linesRemoved": 200,       // Combined from Claude + Cursor
+    // Core metrics - Committed Code (from GitHub)
+    "linesAdded": 2000,        // From GitHub PR diff stats (actual committed code)
+    "linesRemoved": 500,       // From GitHub PR diff stats
+    "aiLinesAdded": 1400,      // Estimated: GitHub.linesAdded * aiPrPercent
+    "aiPercent": 70.0,         // Calculated: (aiLinesAdded / linesAdded) * 100
+    
+    // Tool Usage Metrics (separate from committed code)
+    "toolUsageLinesAdded": 3500,      // Claude.linesAdded + Cursor.totalLinesAdded
+    "toolUsageAiLinesAdded": 2900,    // Claude.linesAdded + Cursor.acceptedLinesAdded
+    "toolUsageAiPercent": 82.9,       // (toolUsageAiLinesAdded / toolUsageLinesAdded) * 100
+    
+    // Other core metrics
     "costCents": 1500,         // Combined from Claude + Cursor
     "commits": 5,              // GitHub primary, Claude/Cursor secondary
     
@@ -132,6 +158,7 @@ These are useful for understanding AI tool impact but are **not primary producti
     "mergedCount": 8,
     "avgCycleTimeHours": 12.5,
     "totalComments": 45,
+    // Note: linesAdded/linesRemoved are at top level (core metrics)
     "byAuthor": {
       "dev1": {
         "prCount": 5,
@@ -143,6 +170,7 @@ These are useful for understanding AI tool impact but are **not primary producti
     // Tool-specific metrics (nested by tool)
     "claude": {
       "sessions": 10,
+      "linesAdded": 500,         // All lines from Claude (assumed AI)
       "tokensInput": 50000,
       "tokensOutput": 25000,
       "tokensCacheRead": 5000,
@@ -164,16 +192,16 @@ These are useful for understanding AI tool impact but are **not primary producti
     },
     
     "cursor": {
-      "tabLines": 500,
-      "composerLines": 300,
-      "nonAiLines": 200,
-      "aiPercent": 80.0,
-      "tabAccepted": 400,
-      "tabRejected": 100,
-      "composerAccepted": 250,
-      "composerRejected": 50,
-      "agentEdits": 25,
-      "aiAcceptanceRate": 0.75,
+      "totalLinesAdded": 1000,   // Total lines (AI + non-AI)
+      "acceptedLinesAdded": 700, // AI lines accepted (used for combined calculation)
+      "nonAiLines": 300,         // Calculated: totalLinesAdded - acceptedLinesAdded
+      "aiPercent": 70.0,         // Cursor-specific: (acceptedLinesAdded / totalLinesAdded) * 100
+      "totalTabsShown": 500,
+      "totalTabsAccepted": 400,
+      "composerRequests": 50,
+      "chatRequests": 30,
+      "agentRequests": 20,
+      "tabAcceptRate": 80.0,     // (totalTabsAccepted / totalTabsShown) * 100
       "commitsByCursor": 2,      // Secondary metric
       "costCents": 600           // If available from Admin API
     },
@@ -197,13 +225,238 @@ These are useful for understanding AI tool impact but are **not primary producti
 }
 ```
 
+## Combined AI Metrics Calculation
+
+This section explains how to compute AI metrics for **two separate contexts**:
+1. **Committed Code** (from GitHub PRs) - what actually made it into the codebase
+2. **Tool Usage** (from Claude/Cursor) - what was written in tools (committed + uncommitted)
+
+### Why Two Separate Metrics?
+
+**Problem:** If we mix tool usage with committed code:
+- Tool usage: 2000 AI lines written
+- GitHub PRs: 1000 lines committed
+- Mixing these could give `aiPercent > 100%` (nonsensical)
+
+**Solution:** Keep them separate:
+- **Committed code metrics** use GitHub PR diff stats as denominator
+- **Tool usage metrics** use tool session data as denominator
+- Each has its own AI percent calculation
+
+### Data Sources
+
+**From GitHub (Primary - Actual Committed Code):**
+- `linesAdded` - Total lines added in PRs (from PR diff stats)
+- `prCount` - Total PRs
+- `mergedCount` - Merged PRs
+
+**From Claude Code (Secondary - AI Attribution):**
+- `commitsByClaude` - Commits created with Claude Code
+- `prsByClaude` - PRs created with Claude Code
+- `linesAdded` (tool usage) - Lines in Claude sessions (not necessarily committed)
+
+**From Cursor (Secondary - AI Attribution):**
+- `commitsByCursor` - Commits with AI attribution
+- `acceptedLinesAdded` (tool usage) - AI lines accepted in Cursor (not necessarily committed)
+
+### Committed Code Metrics (Core - From GitHub PRs)
+
+#### 1. Total Lines Added (Committed)
+
+**Formula:**
+```
+linesAdded = GitHub.linesAdded (from PR diff stats)
+```
+
+**Explanation:**
+- This is the **actual committed code** that matters
+- Comes from GitHub PR diff stats (`additions` field)
+- Represents real code that made it into the codebase
+
+#### 2. AI Lines Added (Committed - Estimated)
+
+**Option A: Estimate from Secondary Metrics (Recommended)**
+
+**Formula:**
+```
+// Estimate based on % of PRs/commits created with AI tools
+aiPrPercent = (Claude.prsByClaude + Cursor.commitsByCursor) / GitHub.prCount
+aiLinesAdded = GitHub.linesAdded * aiPrPercent
+```
+
+**Explanation:**
+- If X% of PRs/commits were created with AI tools, estimate X% of lines are AI-generated
+- This is an approximation but uses actual commit/PR attribution
+- **Cannot exceed 100%** because it's based on PR attribution
+
+**Option B: Use Tool Usage as Proxy (Less Accurate, Can Exceed 100%)**
+
+**Formula:**
+```
+// Use tool usage metrics as proxy (acknowledge it's an estimate)
+toolUsageAiPercent = (Claude.linesAdded + Cursor.acceptedLinesAdded) / 
+                     (Claude.linesAdded + Cursor.totalLinesAdded)
+aiLinesAdded = GitHub.linesAdded * toolUsageAiPercent
+```
+
+**Warning:** This can exceed `linesAdded` if tool usage > committed code. Not recommended.
+
+#### 3. AI Percent (Committed Code)
+
+**Formula:**
+```
+aiPercent = (aiLinesAdded / linesAdded) * 100
+```
+
+**Explanation:**
+- Shows what percentage of **committed code** was AI-generated
+- Uses actual PR lines as denominator
+- **Cannot exceed 100%** when using Option A (PR attribution)
+
+### Tool Usage Metrics (Separate - Not Core)
+
+#### 1. Total Lines Added (Tool Usage)
+
+**Formula:**
+```
+toolUsageLinesAdded = Claude.linesAdded + Cursor.totalLinesAdded
+```
+
+**Explanation:**
+- Total lines written in tools (committed + uncommitted)
+- Includes code that may not have been committed
+
+#### 2. AI Lines Added (Tool Usage)
+
+**Formula:**
+```
+toolUsageAiLinesAdded = Claude.linesAdded + Cursor.acceptedLinesAdded
+```
+
+**Explanation:**
+- AI-generated lines written in tools
+- Claude lines are all AI (by definition)
+- Cursor `acceptedLinesAdded` represents AI-generated code accepted
+
+#### 3. AI Percent (Tool Usage)
+
+**Formula:**
+```
+toolUsageAiPercent = (toolUsageAiLinesAdded / toolUsageLinesAdded) * 100
+```
+
+**Explanation:**
+- Shows AI adoption rate in tool usage
+- Separate from committed code metrics
+- Can be different from committed code AI percent
+
+### Calculation Examples
+
+#### Example 1: Committed Code Metrics
+
+**Input Data:**
+- GitHub: `linesAdded = 2000` (from PR diff stats), `prCount = 20`
+- Claude: `prsByClaude = 8`, `commitsByClaude = 12`
+- Cursor: `commitsByCursor = 6`
+
+**Calculations:**
+```
+// Estimate AI contribution to PRs/commits
+aiPrPercent = (8 + 6) / 20 = 0.70 = 70%
+
+// Estimate AI lines in committed code
+aiLinesAdded = 2000 * 0.70 = 1400
+
+// Calculate AI percent (committed code)
+aiPercent = (1400 / 2000) * 100 = 70.0%
+```
+
+**Result:**
+- 70% of committed code (1400 out of 2000 lines) estimated to be AI-generated
+- Based on 70% of PRs/commits being created with AI tools
+- **Cannot exceed 100%** because it's based on PR attribution
+
+#### Example 2: Tool Usage Metrics
+
+**Input Data:**
+- Claude: `linesAdded = 1500` (all AI)
+- Cursor: `totalLinesAdded = 2000`, `acceptedLinesAdded = 1400`
+
+**Calculations:**
+```
+toolUsageLinesAdded = 1500 + 2000 = 3500
+toolUsageAiLinesAdded = 1500 + 1400 = 2900
+toolUsageAiPercent = (2900 / 3500) * 100 = 82.9%
+```
+
+**Result:**
+- 82.9% of tool usage was AI-generated
+- 3500 lines written in tools (may include uncommitted code)
+- Separate from committed code metrics
+
+#### Example 3: Why Separation Matters
+
+**Scenario:**
+- Tool usage: 5000 lines written (4000 AI)
+- GitHub PRs: 2000 lines committed
+
+**If we mixed them (WRONG):**
+```
+aiPercent = 4000 / 2000 = 200% ❌ (nonsensical)
+```
+
+**With separation (CORRECT):**
+```
+// Committed code
+aiPercent = (estimated from PR attribution) ≤ 100% ✓
+
+// Tool usage
+toolUsageAiPercent = 4000 / 5000 = 80% ✓
+```
+
+This shows why we need two separate metrics.
+
+### Edge Cases
+
+1. **No GitHub data**: Cannot calculate core AI metrics (need committed code)
+2. **No secondary metrics**: Cannot estimate AI contribution (fall back to tool usage proxy)
+3. **No tool usage data**: Can still calculate if we have secondary metrics
+
+### Implementation Notes
+
+- **Primary**: Use GitHub PR diff stats for `totalLinesAdded` (actual committed code)
+- **Estimation**: Use secondary metrics (commitsByClaude, prsByClaude, commitsByCursor) to estimate AI contribution
+- **Acknowledge**: AI metrics are estimates, not exact measurements
+- **Store**: Both tool usage metrics (nested) and estimated committed code metrics (core)
+- **Display**: Clearly label AI metrics as "estimated" in dashboard
+
 ## Dashboard Aggregation Strategy
 
-### Core Metrics (Combined)
+### Committed Code Metrics (Core - From GitHub)
 
-- `totalLinesAdded` = Claude linesAdded + Cursor linesAdded
+- `linesAdded` = **GitHub PR diff stats** (actual committed code)
+- `aiLinesAdded` = **Estimated** from secondary metrics (see calculation above)
+- `aiPercent` = (aiLinesAdded / linesAdded) * 100
+- **Cannot exceed 100%** (based on PR attribution)
+
+### Tool Usage Metrics (Separate - From Claude/Cursor)
+
+- `toolUsageLinesAdded` = Claude linesAdded + Cursor totalLinesAdded
+- `toolUsageAiLinesAdded` = Claude linesAdded + Cursor acceptedLinesAdded
+- `toolUsageAiPercent` = (toolUsageAiLinesAdded / toolUsageLinesAdded) * 100
+- Shows AI adoption in tool usage (committed + uncommitted)
+
+### Other Core Metrics
+
 - `totalCost` = Claude costCents + Cursor costCents
 - `totalCommits` = GitHub commits (primary) + Claude commitsByClaude + Cursor commitsByCursor (secondary)
+
+### Display Strategy
+
+**Dashboard should show:**
+1. **Committed Code Section**: `linesAdded`, `aiLinesAdded`, `aiPercent` (from GitHub)
+2. **Tool Usage Section**: `toolUsageLinesAdded`, `toolUsageAiLinesAdded`, `toolUsageAiPercent` (from tools)
+3. **Comparison**: Show both side-by-side to understand adoption vs. actual impact
 
 ### Primary Metrics (GitHub)
 
@@ -239,4 +492,9 @@ These are useful for understanding AI tool impact but are **not primary producti
 3. **Single-Source Metrics**: Metrics that only exist in one tool (e.g., Claude sessions, Cursor tab/composer breakdown) are nested under tool-specific objects rather than at the top level.
 
 4. **Core Metrics Aggregation**: Common metrics like `linesAdded`, `linesRemoved`, and `costCents` are stored at the top level and aggregated across tools for unified dashboard views.
+
+5. **AI Metrics Calculation**: 
+   - `aiLinesAdded` = Claude `linesAdded` (all AI) + Cursor `acceptedLinesAdded` (AI accepted)
+   - `aiPercent` = (aiLinesAdded / totalLinesAdded) * 100
+   - These are core metrics showing overall AI adoption across tools
 
