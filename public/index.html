@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Code Analytics Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="container">
@@ -182,6 +183,29 @@
             <div><span class="stat-label">Accept Rate:</span> <span id="cursorAcceptRate">--</span></div>
             <div><span class="stat-label">Cost:</span> <span id="cursorCost">--</span></div>
           </div>
+        </div>
+      </div>
+
+      <h2>Trends</h2>
+      <div class="trends-section">
+        <div class="trends-controls">
+          <label>View:
+            <select id="trendsUserSelect" onchange="loadTrendsCharts()">
+              <option value="">All Team</option>
+            </select>
+          </label>
+        </div>
+        <div class="chart-container">
+          <h4>Lines Shipped / Removed</h4>
+          <canvas id="linesChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h4>AI % (estimated)</h4>
+          <canvas id="aiPercentChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h4>Cost</h4>
+          <canvas id="costChart"></canvas>
         </div>
       </div>
 
