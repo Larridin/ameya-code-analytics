@@ -2,6 +2,11 @@
 const today = new Date().toISOString().split('T')[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+// Chart instances
+let linesChart = null;
+let aiPercentChart = null;
+let costChart = null;
+
 document.getElementById('startDate').value = thirtyDaysAgo;
 document.getElementById('endDate').value = today;
 document.getElementById('backfillStart').value = thirtyDaysAgo;
@@ -230,11 +235,159 @@ async function loadAiMetrics() {
 
     // User table
     renderAiUserTable(data.byUser);
+
+    // Load trend charts
+    loadTrendsCharts();
   } catch (err) {
     console.error('Failed to load AI metrics:', err);
     document.getElementById('aiUserTableBody').innerHTML =
       '<tr><td colspan="6">Error loading AI metrics</td></tr>';
   }
+}
+
+async function loadTrendsCharts() {
+  const startDate = document.getElementById('aiMetricsStartDate').value;
+  const endDate = document.getElementById('aiMetricsEndDate').value;
+  const userSelect = document.getElementById('trendsUserSelect');
+  const selectedUser = userSelect.value;
+
+  try {
+    let url = `/api/dashboard/ai-metrics/daily?startDate=${startDate}&endDate=${endDate}`;
+    if (selectedUser) {
+      url += `&user=${encodeURIComponent(selectedUser)}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to load trends data');
+    }
+
+    // Populate user dropdown (only on initial load)
+    if (!selectedUser && data.users) {
+      const currentValue = userSelect.value;
+      userSelect.innerHTML = '<option value="">All Team</option>' +
+        data.users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+      userSelect.value = currentValue;
+    }
+
+    // Render charts
+    renderLinesChart(data.dates, data.series);
+    renderAiPercentChart(data.dates, data.series);
+    renderCostChart(data.dates, data.series);
+  } catch (err) {
+    console.error('Failed to load trends:', err);
+  }
+}
+
+function renderLinesChart(dates, series) {
+  const ctx = document.getElementById('linesChart').getContext('2d');
+
+  if (linesChart) {
+    linesChart.destroy();
+  }
+
+  linesChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: 'Lines Shipped',
+          data: series.linesShipped,
+          borderColor: '#27ae60',
+          backgroundColor: 'rgba(39, 174, 96, 0.1)',
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: 'Lines Removed',
+          data: series.linesRemoved,
+          borderColor: '#e74c3c',
+          backgroundColor: 'rgba(231, 76, 60, 0.1)',
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function renderAiPercentChart(dates, series) {
+  const ctx = document.getElementById('aiPercentChart').getContext('2d');
+
+  if (aiPercentChart) {
+    aiPercentChart.destroy();
+  }
+
+  aiPercentChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'AI %',
+        data: series.aiPercent,
+        borderColor: '#3498db',
+        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, max: 100 }
+      }
+    }
+  });
+}
+
+function renderCostChart(dates, series) {
+  const ctx = document.getElementById('costChart').getContext('2d');
+
+  if (costChart) {
+    costChart.destroy();
+  }
+
+  // Convert cents to dollars
+  const costDollars = series.costCents.map(c => c / 100);
+
+  costChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Cost ($)',
+        data: costDollars,
+        backgroundColor: '#f39c12'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
 }
 
 function renderAiUserTable(byUser) {
