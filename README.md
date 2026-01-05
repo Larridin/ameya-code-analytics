@@ -2,6 +2,15 @@
 
 Unified dashboard for developer productivity metrics across GitHub, Cursor, and Claude Code.
 
+## Features
+
+- **GitHub Metrics**: Commits, PRs, issues, and review activity
+- **Cursor Analytics**: AI coding assistant usage and completions
+- **Claude Code Tracking**: Conversations and token usage
+- **Trend Visualization**: Charts showing daily AI metrics over time
+- **Date Range Filtering**: Flexible time period selection
+- **Backfill Support**: Fetch historical data from all sources
+
 ## Setup
 
 1. Create database:
